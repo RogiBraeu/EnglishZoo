@@ -237,6 +237,15 @@ body.in-lesson .pwa-banner { display: none; }
   padding: 8px; margin-top: 10px; background: #fff; color: var(--ink); word-break: break-all; resize: vertical; }
 .bk-err { color: var(--bad-dark); font-weight: 700; min-height: 1em; }
 
+/* Stimmenauswahl */
+.voice-row { display: flex; align-items: center; gap: 10px; width: 100%; text-align: left; background: var(--card); border: 2px solid var(--line);
+  border-radius: 12px; padding: 10px 12px; margin-top: 8px; min-height: 58px; }
+.voice-row.on { border-color: var(--ok); background: var(--ok-bg); }
+.vr-check { width: 22px; font-weight: 800; color: var(--ok-dark); font-size: 20px; text-align: center; }
+.vr-txt { flex: 1; display: flex; flex-direction: column; }
+.vr-txt b { font-size: 18px; } .vr-txt span { font-size: 14px; color: var(--muted); }
+.vr-play { width: 38px; height: 38px; border-radius: 50%; background: var(--say-bg); display: flex; align-items: center; justify-content: center; font-size: 15px; }
+
 body { background: var(--bg) repeating-linear-gradient(0deg, transparent 0 22px, rgba(139,90,43,.05) 22px 24px); }
 .wrap { padding-bottom: calc(110px + env(safe-area-inset-bottom)); }
 .btn { border: 3px solid var(--wood-dark); box-shadow: 0 4px 0 var(--wood-dark); font-family: var(--pixel); font-weight: 700; letter-spacing: .3px; }
@@ -311,6 +320,23 @@ body { background: var(--bg) repeating-linear-gradient(0deg, transparent 0 22px,
 .px.tear.t1 { animation-delay: .55s; margin-left: 1.6%; }
 @keyframes tearFall { 0% { opacity: 0; transform: translateY(0); } 15% { opacity: 1; } 100% { opacity: 0; transform: translateY(260%); } }
 .sad-row { background: #E3EEFB; border-color: #9DB7DA; }
+.title-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.title-row .pill { font-family: var(--font); font-size: 17px; }
+.bottom-nav button { font-size: 18px; white-space: nowrap; padding: 0 4px; }
+.bottom-nav { gap: 8px; padding-left: 10px; padding-right: 10px; }
+.tro-head b { font-family: var(--pixel); font-size: 22px; color: var(--wood-dark); display: block; margin-bottom: 8px; }
+.tro-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.tro { display: flex; flex-direction: column; align-items: center; gap: 6px; background: var(--card); border: 3px solid var(--line); border-radius: 10px;
+  padding: 12px 4px 8px; box-shadow: 0 4px 0 var(--line); min-height: 118px; }
+.tro.got { background: #FFF3C9; border-color: #D9A93E; box-shadow: 0 4px 0 #B8862A; }
+.tro.locked { opacity: .75; }
+.tro-ico { height: 64px; display: flex; align-items: flex-end; }
+.px-trophy { image-rendering: pixelated; height: auto; display: block; }
+.tro-label { font-weight: 800; font-size: 14px; line-height: 1.15; text-align: center; }
+.tro.locked .tro-label { font-family: var(--pixel); font-size: 20px; color: var(--muted); }
+.tro-big { display: flex; justify-content: center; margin: 8px 0; }
+.tro-big .px-trophy { filter: drop-shadow(0 6px 0 rgba(0,0,0,.12)); animation: hop .8s ease-out 2; }
+.tro-name { font-family: var(--pixel); font-weight: 700; font-size: 24px; margin: 4px 0; color: var(--wood-dark); }
 .px-icon.heart.big { width: 10%; }
 .party-mio { width: 140px; margin: 0 auto; }
 .px-icon.heart { position: absolute; bottom: 30%; width: 7%; animation: heartUp 1.6s ease-out forwards; opacity: 0; }
@@ -361,7 +387,7 @@ body.in-lesson .bottom-nav { display: none; }
 <div class="wrap" id="app"></div>
 <div id="lesson" hidden></div>
 <script>
-const APP_VERSION = "2";
+const APP_VERSION = "3";
 /* =====================================================================
    VOKABELN
    ---------------------------------------------------------------------
@@ -550,7 +576,7 @@ const Store = {
   key: "vokabeln", data: null,
   defaults() {
     return { v: 1, words: {}, xp: 0, streak: 0, lastLessonDay: null, lastPlayDay: null,
-      packsDone: {}, settings: { sound: true, speech: true }, app: {} };
+      packsDone: {}, settings: { sound: true, speech: true, voice: null }, app: {} };
   },
   load(key) {
     this.key = key;
@@ -752,16 +778,38 @@ const Sound = {
 
 /* ---------- Vorlesen (Sprachausgabe des Handys) ---------- */
 const Speech = {
-  voice: null,
+  voice: null, listeners: [],
   get ok() { return "speechSynthesis" in window && typeof SpeechSynthesisUtterance !== "undefined"; },
+  /* Spaß-Stimmen von Apple/macOS, die für Vokabeln ungeeignet sind */
+  NOVELTY: /^(Albert|Bad News|Bahh|Bells|Boing|Bubbles|Cellos|Deranged|Good News|Hysterical|Jester|Organ|Pipe Organ|Superstar|Trinoids|Whisper|Wobble|Zarvox|Ralph|Fred|Junior|Kathy|Princess|Grandma|Grandpa|Eddy|Flo|Reed|Rocko|Sandy|Shelley)\b/i,
+  LANGS: { "en-GB": "Britisch", "en-US": "Amerikanisch", "en-AU": "Australisch", "en-IE": "Irisch", "en-IN": "Indisch", "en-ZA": "Südafrikanisch", "en-CA": "Kanadisch", "en-NZ": "Neuseeländisch", "en-SC": "Schottisch" },
+  english() {
+    if (!this.ok) return [];
+    return speechSynthesis.getVoices().filter(v => /^en([-_]|$)/i.test(v.lang) && !this.NOVELTY.test(v.name));
+  },
+  /* Qualität schätzen: bessere Stimmen und britisches Englisch zuerst */
+  score(v) {
+    let s = 0;
+    const lang = v.lang.replace("_", "-");
+    if (/^en-GB/i.test(lang)) s += 30; else if (/^en-US/i.test(lang)) s += 18; else s += 8;
+    if (/premium|enhanced|natural|neural|wavenet|erweitert|siri/i.test(v.name)) s += 40;
+    if (/^(Daniel|Serena|Kate|Arthur|Martha|Oliver|Stephanie|Jamie)\b/i.test(v.name)) s += 12;
+    if (/Google UK English/i.test(v.name)) s += 20;
+    if (v.localService) s += 10; // funktioniert auch ohne Internet
+    if (v.default) s += 2;
+    return s;
+  },
+  sorted() { return this.english().sort((a, b) => this.score(b) - this.score(a)); },
+  choose() {
+    const list = this.sorted();
+    const want = Store.data && Store.data.settings.voice;
+    this.voice = (want && list.find(v => v.voiceURI === want)) || list[0] || null;
+  },
   init() {
     if (!this.ok) return;
-    const choose = () => {
-      const vs = speechSynthesis.getVoices();
-      this.voice = vs.find(v => /en[-_]GB/i.test(v.lang)) || vs.find(v => /^en/i.test(v.lang)) || null;
-    };
-    choose();
-    try { speechSynthesis.addEventListener("voiceschanged", choose); } catch (e) { speechSynthesis.onvoiceschanged = choose; }
+    const upd = () => { this.choose(); this.listeners.forEach(f => f()); };
+    upd();
+    try { speechSynthesis.addEventListener("voiceschanged", upd); } catch (e) { speechSynthesis.onvoiceschanged = upd; }
   },
   say(text, slow) {
     if (!this.ok || !Store.data.settings.speech) return;
@@ -774,7 +822,45 @@ const Speech = {
       speechSynthesis.speak(u);
     } catch (e) {}
   },
-  btn(text, cls) { return this.ok && Store.data.settings.speech ? `<button class="say ${cls || ""}" data-say="${U.esc(text)}" aria-label="Vorlesen">🔊</button>` : ""; }
+  btn(text, cls) { return this.ok && Store.data.settings.speech ? `<button class="say ${cls || ""}" data-say="${U.esc(text)}" aria-label="Vorlesen">🔊</button>` : ""; },
+
+  /* ---------- Stimmenauswahl für die Einstellungen ---------- */
+  SAMPLE: "Hello! I'm Mio. Let's learn English together!",
+  label(v) {
+    const lang = v.lang.replace("_", "-");
+    const name = v.name.replace(/^(Microsoft|Google|Apple)\s+/i, "").replace(/\s*\((Natural|Online)[^)]*\)/gi, "").replace(/\s+-\s+English.*$/i, "");
+    return { name, lang: this.LANGS[lang] || "Englisch", good: /premium|enhanced|natural|neural|erweitert/i.test(v.name), online: !v.localService };
+  },
+  section() {
+    return `<section class="card voices"><p class="bk-title">🗣️ Stimme zum Vorlesen</p>
+      <p class="small">Tippe auf eine Stimme, um sie zu hören und auszuwählen.</p>
+      <div data-voice-list></div></section>`;
+  },
+  bindSettings(root) {
+    const box = root.querySelector("[data-voice-list]");
+    if (!box) return;
+    const draw = () => {
+      if (!box.isConnected) return;
+      if (!this.ok) { box.innerHTML = `<p class="small">Dieses Gerät kann leider nicht vorlesen.</p>`; return; }
+      const list = this.sorted();
+      if (!list.length) { box.innerHTML = `<p class="small">Stimmen werden geladen … Falls hier nichts erscheint, hat dieses Gerät keine englische Stimme.</p>`; return; }
+      const chosen = Store.data.settings.voice || "";
+      const auto = list[0];
+      const row = (id, title, sub, on) => `<button class="voice-row ${on ? "on" : ""}" data-voice="${U.esc(id)}">
+        <span class="vr-check">${on ? "✓" : ""}</span><span class="vr-txt"><b>${U.esc(title)}</b><span>${U.esc(sub)}</span></span><span class="vr-play">▶</span></button>`;
+      box.innerHTML = row("", "Automatisch", `beste Stimme: ${this.label(auto).name}`, !chosen || !list.some(v => v.voiceURI === chosen)) +
+        list.map(v => { const l = this.label(v);
+          return row(v.voiceURI, l.name, l.lang + (l.good ? " · beste Qualität" : "") + (l.online ? " · braucht Internet" : ""), v.voiceURI === chosen); }).join("");
+      box.querySelectorAll("[data-voice]").forEach(b => b.onclick = () => {
+        Store.data.settings.voice = b.dataset.voice || null; Store.save();
+        this.choose(); draw();
+        const was = Store.data.settings.speech; Store.data.settings.speech = true; this.say(this.SAMPLE); Store.data.settings.speech = was;
+      });
+    };
+    draw();
+    this.listeners = this.listeners.filter(f => f.box && f.box.isConnected);
+    const f = () => draw(); f.box = box; this.listeners.push(f);
+  }
 };
 
 /* ---------- Konfetti ---------- */
@@ -891,7 +977,8 @@ const Lesson = {
     try { if (Speech.ok) speechSynthesis.cancel(); } catch (e) {}
     this.root.hidden = true; this.root.innerHTML = "";
     document.body.classList.remove("in-lesson");
-    const res = { completed, xp: this.st.xp, plan: this.plan, learned: this.st.learnedNow, reviewed: [...this.st.reviewed.keys()] };
+    const res = { completed, xp: this.st.xp, plan: this.plan, learned: this.st.learnedNow, reviewed: [...this.st.reviewed.keys()],
+      mistakes: this.st.answered - this.st.correctFirst };
     if (this.opts.onClose) this.opts.onClose(res);
   },
 
@@ -1930,6 +2017,90 @@ const Scene = {
     }
   }
 };
+
+/* ---------- Pokale (Pixel) ---------- */
+const TROPHY_SHAPES = {
+  cup: [
+    "..kkkkkkkkkkkk..",
+    "kkkABBBBBBBBCkkk",
+    "kBkABBBBBBBBCkBk",
+    "kBkABBBBBBBBCkBk",
+    "kBkkABBBBBBCkkBk",
+    ".kBkABBBBBBCkBk.",
+    "..kkkABBBBCkkk..",
+    "....kkABBCkk....",
+    "......kBCk......",
+    "......kBCk......",
+    ".....kABBCk.....",
+    "...kkkkkkkkkk...",
+    "...kNNNNNNNNk...",
+    "...knnnnnnnnk...",
+    "...kkkkkkkkkk..."],
+  medal: [
+    "kkk......kkk",
+    "krrk....kEEk",
+    ".krrk..kEEk.",
+    "..krrkkEEk..",
+    "...krrEEk...",
+    "...kkkkkk...",
+    "..kAABBBCk..",
+    ".kABBBBBBCk.",
+    ".kABBwBBBCk.",
+    ".kABBBBBBCk.",
+    ".kBBBBBBCCk.",
+    "..kBBBBCCk..",
+    "...kkkkkk..."],
+  star: [
+    ".......k.......",
+    "......kAk......",
+    "......kAk......",
+    ".....kABCk.....",
+    "kkkkkkABBCkkkkk",
+    "kAABBBBBBBBBBCk",
+    ".kABBBBBBBBBCk.",
+    "..kABBBBBBBCk..",
+    "...kABBBBBCk...",
+    "..kABBBkBBBCk..",
+    "..kABBk.kBBCk..",
+    ".kABk.....kBCk.",
+    ".kkk.......kkk.",
+    "......kNk......",
+    ".....kNNNk.....",
+    "....kkkkkkk...."],
+  heart: [
+    ".kkkk..kkkk.",
+    "kAABBkkABBCk",
+    "kABBBBBBBBCk",
+    "kABBBBBBBBCk",
+    ".kBBBBBBBCk.",
+    "..kBBBBBCk..",
+    "...kBBBCk...",
+    "....kBCk....",
+    ".....kk.....",
+    ".....kk.....",
+    "....kNNk....",
+    "...kNNNNk...",
+    "...kkkkkk..."]
+};
+const METALS = {
+  gold: { A: "#fff2a8", B: "#f4c430", C: "#c48a10" },
+  silver: { A: "#ffffff", B: "#c9ced6", C: "#8a909c" },
+  bronze: { A: "#f6c896", B: "#cd7f32", C: "#8a5220" },
+  ruby: { A: "#ffc2cd", B: "#e8475f", C: "#a52a3a" }
+};
+Pix.trophy = function (shape, metal, locked) {
+  const rows = TROPHY_SHAPES[shape], h = rows.length, w = Math.max(...rows.map(r => r.length));
+  const pal = Object.assign({}, PAL, METALS[metal]);
+  const c = document.createElement("canvas"); c.width = w; c.height = h;
+  const g = c.getContext("2d");
+  rows.forEach((r, y) => [...r].forEach((ch, x) => {
+    if (ch === "." || !pal[ch]) return;
+    g.fillStyle = locked ? (ch === "k" ? "#8c7a62" : "#c9b796") : pal[ch];
+    g.fillRect(x, y, 1, 1);
+  }));
+  c.className = "px-trophy";
+  return c;
+};
 /* =====================================================================
    PWA: Offline-Speicher, Update-Banner, Home-Bildschirm-Hinweis,
    dauerhafter Speicher und Sicherungscode (für beide Apps gleich)
@@ -2352,12 +2523,42 @@ const Routine = {
 const ENC_XP = { correct: 1, retry: 1, lesson: 0, combo: 0 };
 const ZOO = { COMFORT_TASKS: 3, HOLIDAY_DAYS: 7, TOY_TASKS: 3, HAPPY_BONUS: 5, POWER_BONUS: 10, START_ANIMALS: 2, CLEAN_TASKS: 5, EVENT_TASKS: 6, EVENT_BONUS: 5, EVENT_CHANCE: 0.5, EVENT_MIN_WORDS: 6 };
 
+/* Pokale: jeder nur einmal. test(z) bekommt die App */
+const anyDay = (z, lvl) => Object.values(z.A.days || {}).some(v => v >= lvl);
+const bestDayXP = z => Math.max(0, ...Object.values(z.A.xpDays || {}));
+const TROPHIES = [
+  { id: "first_feed", shape: "medal", metal: "bronze", name: "Erste Mahlzeit", desc: "Füttere zum ersten Mal ein Tier.", test: z => z.stat("fed") >= 1 },
+  { id: "first_pack", shape: "cup", metal: "bronze", name: "Erstes Päckchen", desc: "Lerne im Shop dein erstes Päckchen.", test: z => z.donePacks() >= 1 },
+  { id: "first_event", shape: "medal", metal: "silver", name: "Retter in der Not", desc: "Löse dein erstes Ereignis im Zoo.", test: z => z.stat("events") >= 1 },
+  { id: "first_toy", shape: "heart", metal: "silver", name: "Spielkamerad", desc: "Erspiele zum ersten Mal ein Spielzeug.", test: z => z.stat("toys") >= 1 },
+  { id: "happy_1", shape: "heart", metal: "ruby", name: "Glücklicher Zoo", desc: "Alle Tiere sind an einem Tag glücklich ❤️.", test: z => anyDay(z, 1) },
+  { id: "power_1", shape: "heart", metal: "gold", name: "Power-Zoo!", desc: "Zum ersten Mal sind alle Tiere superglücklich 💖.", test: z => anyDay(z, 2) },
+  { id: "happy_5", shape: "cup", metal: "silver", name: "5 glückliche Tage", desc: "5 Tage in Folge ein glücklicher Zoo.", test: z => z.zooStreak(1) >= 5 },
+  { id: "happy_10", shape: "cup", metal: "gold", name: "10 glückliche Tage", desc: "10 Tage in Folge ein glücklicher Zoo.", test: z => z.zooStreak(1) >= 10 },
+  { id: "power_3", shape: "star", metal: "silver", name: "Power-Serie", desc: "3 Tage in Folge Power-Zoo.", test: z => z.zooStreak(2) >= 3 },
+  { id: "power_7", shape: "star", metal: "gold", name: "Power-Woche", desc: "7 Tage in Folge Power-Zoo.", test: z => z.zooStreak(2) >= 7 },
+  { id: "xp_200", shape: "star", metal: "bronze", name: "200 XP an einem Tag", desc: "Verdiene an einem Tag 200 XP.", test: z => bestDayXP(z) >= 200 },
+  { id: "xp_500", shape: "star", metal: "ruby", name: "500 XP an einem Tag", desc: "Verdiene an einem Tag 500 XP.", test: z => bestDayXP(z) >= 500 },
+  { id: "perfect", shape: "medal", metal: "gold", name: "Fehlerfrei", desc: "Schaffe ein Päckchen im Shop ganz ohne Fehler.", test: z => z.stat("perfect") >= 1 },
+  { id: "streak_7", shape: "medal", metal: "ruby", name: "Lern-Woche", desc: "Lerne 7 Tage in Folge.", test: () => Plan.streak() >= 7 },
+  { id: "words_50", shape: "cup", metal: "ruby", name: "50 Wörter", desc: "Du kannst 50 Wörter.", test: () => Plan.learnedWords().length >= 50 },
+  { id: "words_100", shape: "star", metal: "gold", name: "100 Wörter", desc: "Du kannst 100 Wörter.", test: () => Plan.learnedWords().length >= 100 },
+  { id: "set_done", shape: "cup", metal: "gold", name: "Set geschafft", desc: "Lerne alle Wörter eines Sets.", test: () => Data.sets.some(s => { const p = Plan.setProgress(s.id); return p.learned === p.total; }) },
+  { id: "events_10", shape: "medal", metal: "gold", name: "Zoo-Handwerker", desc: "Löse 10 Ereignisse im Zoo.", test: z => z.stat("events") >= 10 },
+  { id: "full_zoo", shape: "heart", metal: "bronze", name: "Voller Zoo", desc: "Alle Tiere wohnen in deinem Zoo.", test: z => z.A.unlocked.length >= ANIMALS.length }
+];
+
 const App = {
   view: "zoo",
   get A() { return Store.data.app; },
 
   init() {
-    Engine.init({ storageKey: "zoo-vokabeln-v1", onXP: n => { this.A.wallet += n; Store.save(); } });
+    Engine.init({ storageKey: "zoo-vokabeln-v1", onXP: n => {
+      const A = this.A, t = U.today();
+      A.wallet += n; A.xpDays = A.xpDays || {}; A.xpDays[t] = (A.xpDays[t] || 0) + n;
+      Object.keys(A.xpDays).forEach(d => { if (+d < t - 60) delete A.xpDays[d]; });
+      Store.save();
+    } });
     if (!this.pwaReady) { PWA.init({ prefix: "ZOO1" }); this.pwaReady = true; }
     const A = this.A;
     if (!A.init) {
@@ -2366,6 +2567,7 @@ const App = {
     }
     if (!Data.set(A.setId)) A.setId = Data.sets[0].id;
     A.toys = A.toys || {}; A.days = A.days || {};
+    A.stats = A.stats || {}; A.trophies = A.trophies || {}; A.trophyQueue = A.trophyQueue || []; A.xpDays = A.xpDays || {};
     this.ensureAnimals(true);
     this.checkHoliday();
     this.rollEvent();
@@ -2390,6 +2592,48 @@ const App = {
   animal(id) { return ANIMALS.find(a => a.id === id); },
   hunger(id) { return Math.min(2, U.today() - this.A.animals[id].fed); },
   dirt(id) { return Math.min(2, U.today() - this.A.animals[id].clean); },
+  stat(k) { return (this.A.stats && this.A.stats[k]) || 0; },
+  bump(k) { this.A.stats[k] = this.stat(k) + 1; Store.save(); },
+  checkTrophies() {
+    const A = this.A, t = U.today();
+    let changed = false;
+    TROPHIES.forEach(tr => {
+      if (A.trophies[tr.id]) return;
+      let ok = false; try { ok = tr.test(this); } catch (e) { ok = false; }
+      if (ok) { A.trophies[tr.id] = t; A.trophyQueue.push(tr.id); changed = true; }
+    });
+    if (changed) Store.save();
+  },
+  trophyEl(tr, locked, size) { const c = Pix.trophy(tr.shape, tr.metal, locked); c.style.width = size || "56px"; return c; },
+  dayText(d) { return new Date(d * 864e5).toLocaleDateString("de-DE", { timeZone: "UTC", day: "numeric", month: "long", year: "numeric" }); },
+  trophyPopup() {
+    const id = this.A.trophyQueue.shift(); Store.save();
+    const tr = TROPHIES.find(x => x.id === id); if (!tr) return;
+    Sound.play("finish"); Confetti.burst(170);
+    this.dialog(`<p class="dlg-title">🏆 Neuer Pokal!</p><div class="tro-big" data-trobig></div>
+      <p class="tro-name">${U.esc(tr.name)}</p><p>${U.esc(tr.desc)}</p>
+      <button class="btn primary big" data-close>Super!</button><button class="btn ghost" data-togallery>Alle Pokale ansehen</button>`,
+      d => { d.dataset.rerender = "1"; d.querySelector("[data-trobig]").appendChild(this.trophyEl(tr, false, "120px"));
+        d.querySelector("[data-togallery]").onclick = () => { d.hidden = true; this.view = "trophies"; this.render(); }; });
+  },
+  trophiesView() {
+    const A = this.A, got = TROPHIES.filter(t => A.trophies[t.id]).length;
+    return `<header class="top"><div class="brand">Deine Pokale</div><div class="pill gold">⭐ ${A.wallet} XP</div>
+      <button class="icon" data-go="settings" aria-label="Einstellungen">⚙️</button></header>
+      <div class="card tro-head"><b>🏆 ${got} von ${TROPHIES.length} Pokalen</b>
+        <div class="progress"><div style="width:${Math.round(100 * got / TROPHIES.length)}%"></div></div></div>
+      <div class="tro-grid">${TROPHIES.map(t => `<button class="tro ${A.trophies[t.id] ? "got" : "locked"}" data-trophy="${t.id}">
+        <span class="tro-ico" data-troico="${t.id}"></span><span class="tro-label">${A.trophies[t.id] ? U.esc(t.name) : "?"}</span></button>`).join("")}</div>`;
+  },
+  openTrophy(id) {
+    const tr = TROPHIES.find(x => x.id === id), day = this.A.trophies[id];
+    this.dialog(`<div class="tro-big" data-trobig></div>
+      <p class="tro-name">${day ? U.esc(tr.name) : "Noch nicht geschafft"}</p>
+      <p>${U.esc(tr.desc)}</p>${day ? `<p class="small">Geschafft am ${this.dayText(day)}</p>` : `<p class="small">Schaffst du das? 💪</p>`}
+      <button class="btn primary big" data-close>OK</button>`,
+      d => d.querySelector("[data-trobig]").appendChild(this.trophyEl(tr, !day, "120px")));
+  },
+
   /* Traurig: einen ganzen Tag nicht gefüttert oder nicht sauber gemacht – muss erst getröstet werden */
   sad(id) { return (this.hunger(id) >= 2 || this.dirt(id) >= 2) && this.A.animals[id].comforted !== U.today(); },
   /* Nach langer Pause (Ferien) hat Mio auf die Tiere aufgepasst: niemand weint */
@@ -2473,7 +2717,8 @@ const App = {
   },
   nav() {
     return `<nav class="bottom-nav"><button class="${this.view === "zoo" ? "on" : ""}" data-go="zoo">🦒 Zoo</button>
-      <button class="${this.view === "shop" ? "on" : ""}" data-go="shop">🏪 Shop</button></nav>`;
+      <button class="${this.view === "shop" ? "on" : ""}" data-go="shop">🏪 Shop</button>
+      <button class="${this.view === "trophies" ? "on" : ""}" data-go="trophies">🏆 Pokale</button></nav>`;
   },
   invBar() {
     const A = this.A, need = this.foodNeeded();
@@ -2482,10 +2727,12 @@ const App = {
   },
 
   render(keep) {
+    this.checkTrophies();
     const app = document.getElementById("app");
     const y = window.scrollY;
     if (this.view === "zoo") app.innerHTML = this.zooView();
     else if (this.view === "shop") app.innerHTML = this.shopView();
+    else if (this.view === "trophies") app.innerHTML = this.trophiesView();
     else app.innerHTML = this.settingsView();
     app.insertAdjacentHTML("beforeend", this.nav() + `<div class="dialog" hidden></div>`);
     this.paint(app);
@@ -2499,6 +2746,7 @@ const App = {
         <button class="btn primary big" data-close>Los geht's!</button>`, d => { d.dataset.rerender = "1"; });
     } else if (this.view !== "settings" && this.A.welcome.length) this.welcomeAnimal();
     else if (this.pendingZoo) this.zooParty();
+    else if (this.view !== "settings" && this.A.trophyQueue.length) this.trophyPopup();
   },
 
   zooView() {
@@ -2600,6 +2848,7 @@ const App = {
   },
 
   paint(root) {
+    root.querySelectorAll("[data-troico]").forEach(el => { const tr = TROPHIES.find(x => x.id === el.dataset.troico); el.appendChild(this.trophyEl(tr, !this.A.trophies[tr.id])); });
     root.querySelectorAll("[data-scene]").forEach(el => this.scene(el, this.animal(el.dataset.scene)));
     root.querySelectorAll("[data-icon]").forEach(el => { el.innerHTML = ""; el.appendChild(Pix.icon(el.dataset.icon)); });
     const stall = root.querySelector("canvas.stall"); if (stall) this.drawStall(stall);
@@ -2641,7 +2890,7 @@ const App = {
         ${learn}
       </section>
       <section class="card">
-        <div class="card-title">🛒 Futter kaufen</div>
+        <div class="card-title title-row">🛒 Futter kaufen <span class="pill gold">⭐ ${A.wallet} XP</span></div>
         ${Object.entries(FOODS).map(([k, f]) => {
           const usable = need.has(k);
           return `<div class="food-row ${usable ? "" : "dim"}"><span class="food-ico" data-icon="${k}"></span>
@@ -2658,8 +2907,8 @@ const App = {
       <section class="card">
         <div class="toggle-row">Töne <button class="switch ${s.sound ? "on" : ""}" data-toggle="sound" aria-label="Töne"></button></div>
         <div class="toggle-row">Vorlesen <button class="switch ${s.speech ? "on" : ""}" data-toggle="speech" aria-label="Vorlesen"></button></div>
-        ${Speech.ok ? `<button class="btn" data-testsay>🔊 Vorlesen testen</button>` : `<p class="small">Dieses Handy kann leider nicht vorlesen.</p>`}
       </section>
+      ${Store.data.settings.speech ? Speech.section() : ""}
       <section class="card">
         <p class="small">Insgesamt verdient: <b>${Store.data.xp} XP</b></p>
         <p class="small">Dein Zoo wird nur auf diesem Handy gespeichert. Es gibt kein Login und es werden keine Daten verschickt.</p>
@@ -2681,7 +2930,9 @@ const App = {
     app.querySelectorAll("[data-enc]").forEach(b => b.onclick = () => { Sound.play("tap"); this.openEnc(b.dataset.enc); });
     app.querySelectorAll("[data-pickset]").forEach(b => b.onclick = () => { this.A.setId = b.dataset.pickset; Store.save(); this.render(true); });
     app.querySelectorAll("[data-learn]").forEach(b => b.onclick = () => Engine.startNew(this.A.setId, +b.dataset.learn, {
-      finishTitle: "Great work!", finishExtra: () => this.walletNote(), onClose: () => { this.ensureAnimals(); this.view = "shop"; this.render(); } }));
+      finishTitle: "Great work!", finishExtra: () => this.walletNote(), onClose: res => {
+        if (res.completed && res.mistakes === 0) this.bump("perfect");
+        this.ensureAnimals(); this.view = "shop"; this.render(); } }));
     const pr = app.querySelector("[data-practice]");
     if (pr) pr.onclick = () => this.practice(8, "Great work!", () => {}, true);
     app.querySelectorAll("[data-buy]").forEach(b => b.onclick = () => this.buy(b.dataset.buy, b));
@@ -2692,7 +2943,9 @@ const App = {
         <p>Der Zoo, die XP und alle gelernten Wörter sind dann weg.</p>
         <button class="btn primary big" data-close>Nein, behalten</button><button class="btn ghost" data-yes>Ja, löschen</button>`,
       d => d.querySelector("[data-yes]").onclick = () => { Store.reset(); this.view = "zoo"; this.init(); });
+    app.querySelectorAll("[data-trophy]").forEach(b => b.onclick = () => this.openTrophy(b.dataset.trophy));
     PWA.bindBackup(app);
+    Speech.bindSettings(app);
     const sk = app.querySelector("[data-skipday]");
     if (sk) sk.onclick = () => { this.skipDay(); sk.textContent = "✓ Ein Tag vorgespult"; };
     const me = app.querySelector("[data-mkevent]");
@@ -2775,12 +3028,12 @@ const App = {
     const eb = d.querySelector("[data-event]");
     if (eb) eb.onclick = () => { d.hidden = true; const E = EVENTS[ev.type];
       this.afterMsg = () => this.celebrate(a, "Problem solved!", `${E.done} Bonus: +${ZOO.EVENT_BONUS} XP`);
-      this.practice(ZOO.EVENT_TASKS, "Problem solved!", () => { A.event = null; Store.save(); Plan.addXP(ZOO.EVENT_BONUS); this.checkZoo(); }); };
+      this.practice(ZOO.EVENT_TASKS, "Problem solved!", () => { A.event = null; Store.save(); this.bump("events"); Plan.addXP(ZOO.EVENT_BONUS); this.checkZoo(); }); };
   },
 
   feed(a, d) {
     const A = this.A;
-    A.inv[a.food]--; A.animals[a.id].fed = U.today(); Store.save();
+    A.inv[a.food]--; A.animals[a.id].fed = U.today(); Store.save(); this.bump("fed");
     Sound.play("finish"); Confetti.burst(60);
     const sc = d.querySelector("[data-bigscene]");
     this.scene(sc, a, true);
@@ -2817,7 +3070,7 @@ const App = {
     if (tb) tb.onclick = () => {
       d.hidden = true;
       this.afterMsg = () => this.playDialog(a);
-      this.practice(ZOO.TOY_TASKS, "Toy unlocked!", () => { A.animals[id].toy = U.today(); Store.save(); this.checkZoo(); });
+      this.practice(ZOO.TOY_TASKS, "Toy unlocked!", () => { A.animals[id].toy = U.today(); Store.save(); this.bump("toys"); this.checkZoo(); });
     };
   },
 
@@ -2880,6 +3133,7 @@ const App = {
     Object.values(A.animals).forEach(x => { x.fed -= 1; x.clean -= 1; if (x.toy != null) x.toy -= 1; if (x.comforted != null) x.comforted -= 1; });
     if (A.lastVisit != null) A.lastVisit -= 1;
     const zd = {}; Object.keys(A.days || {}).forEach(k => zd[+k - 1] = A.days[k]); A.days = zd;
+    const xd = {}; Object.keys(A.xpDays || {}).forEach(k => xd[+k - 1] = A.xpDays[k]); A.xpDays = xd;
     if (A.lastEventRoll != null) A.lastEventRoll -= 1;
     if (A.event) A.event.day -= 1;
     Store.save();
