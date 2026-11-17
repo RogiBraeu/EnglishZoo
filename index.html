@@ -415,7 +415,7 @@ body.in-lesson .bottom-nav { display: none; }
 <div class="wrap" id="app"></div>
 <div id="lesson" hidden></div>
 <script>
-const APP_VERSION = "1.09";
+const APP_VERSION = "1.10";
 /* =====================================================================
    VOKABELN
    ---------------------------------------------------------------------
@@ -2818,7 +2818,10 @@ const Routine = {
 
 /* XP-Haushalt: Futter verdient man vor allem mit neuen Wörtern im Shop.
    Übungen am Gehege bringen nur wenig XP – ihr Lohn ist das saubere Gehege, das Spielzeug, das Herz. */
-const ENC_XP = { correct: 5, retry: 2, lesson: 0, combo: 0 };
+/* Gehege mit einem Tier: wenig XP (das Futter kommt aus dem Shop).
+   Gehege mit zwei Tieren: mehr XP, damit die zweite Portion am Gehege selbst verdient wird. */
+const ENC_XP_ONE = { correct: 1, retry: 1, lesson: 0, combo: 0 };
+const ENC_XP_TWO = { correct: 5, retry: 2, lesson: 0, combo: 0 };
 /* Päckchen im Shop: 10 XP pro Antwort wie immer, dazu ein großer Päckchen-Bonus */
 const SHOP_XP = { lesson: 50 };
 const ZOO = { COMFORT_TASKS: 3, HOLIDAY_DAYS: 7, TOY_TASKS: 3, HAPPY_BONUS: 5, POWER_BONUS: 10, START_ANIMALS: 2, CLEAN_TASKS: 4, EVENT_TASKS: 6, EVENT_BONUS: 5, EVENT_CHANCE: 0.5, EVENT_MIN_WORDS: 6 };
@@ -3252,7 +3255,7 @@ const App = {
       <div class="shop-sign"><canvas class="stall"></canvas><div class="shop-title">Mios Laden</div></div>
       <section class="card">
         <div class="card-title">⭐ XP verdienen</div>
-        <p class="small">Neue Wörter bringen die meisten XP: <b>10 XP</b> pro richtiger Antwort und <b>50 XP</b> Päckchen-Bonus. Am Gehege gibt es 5 XP pro Antwort.</p>
+        <p class="small">Neue Wörter bringen die meisten XP: <b>10 XP</b> pro richtiger Antwort und <b>50 XP</b> Päckchen-Bonus. Am Gehege gibt es 1 XP pro Antwort, in Gehegen mit zwei Tieren 5 XP.</p>
         <div class="set-label">Welches Set übst du gerade?</div>
         <div class="set-chips">${Data.sets.map(s => `<button class="set-chip ${s.id === A.setId ? "on" : ""}" data-pickset="${U.esc(s.id)}">${U.esc(s.title)}</button>`).join("")}</div>
         <div class="progress"><div style="width:${Math.round(100 * p.learned / p.total)}%"></div></div>
@@ -3360,8 +3363,9 @@ const App = {
     const ico = document.querySelector(`.food-row [data-icon="${food}"]`);
     if (ico) ico.classList.add("pop");
   },
-  practice(n, title, onDone, shopXP) {
-    const ok = Engine.startReview(n, { xp: shopXP ? null : ENC_XP, finishTitle: title, finishExtra: () => this.walletNote(), onClose: res => {
+  practice(n, title, onDone, shopXP, encId) {
+    const encXP = encId && this.hasFriend(encId) ? ENC_XP_TWO : ENC_XP_ONE;
+    const ok = Engine.startReview(n, { xp: shopXP ? null : encXP, finishTitle: title, finishExtra: () => this.walletNote(), onClose: res => {
       if (res.completed) onDone();
       const m = res.completed ? this.afterMsg : null; this.afterMsg = null;
       this.quiet = !!m; this.render(); this.quiet = false;
@@ -3418,15 +3422,15 @@ const App = {
     const jb = d.querySelector("[data-joker]");
     if (jb) jb.onclick = () => this.useJoker(a, d);
     const cb = d.querySelector("[data-clean]");
-    if (cb) cb.onclick = () => { d.hidden = true; this.afterMsg = () => this.celebrate(a, "Sparkling clean!", "Das Gehege glänzt wieder."); this.practice(ZOO.CLEAN_TASKS, "Sparkling clean!", () => { A.animals[id].clean = U.today(); Store.save(); this.checkZoo(); }); };
+    if (cb) cb.onclick = () => { d.hidden = true; this.afterMsg = () => this.celebrate(a, "Sparkling clean!", "Das Gehege glänzt wieder."); this.practice(ZOO.CLEAN_TASKS, "Sparkling clean!", () => { A.animals[id].clean = U.today(); Store.save(); this.checkZoo(); }, false, id); };
     const cf = d.querySelector("[data-comfort]");
     if (cf) cf.onclick = () => { d.hidden = true;
       this.afterMsg = () => this.celebrate(a, "Feeling better!", `${a.der} ist wieder froh. Jetzt füttern und sauber machen!`);
-      this.practice(ZOO.COMFORT_TASKS, "Feeling better!", () => { A.animals[id].comforted = U.today(); Store.save(); }); };
+      this.practice(ZOO.COMFORT_TASKS, "Feeling better!", () => { A.animals[id].comforted = U.today(); Store.save(); }, false, id); };
     const eb = d.querySelector("[data-event]");
     if (eb) eb.onclick = () => { d.hidden = true; const E = EVENTS[ev.type];
       this.afterMsg = () => this.celebrate(a, "Problem solved!", `${E.done} Bonus: +${ZOO.EVENT_BONUS} XP`);
-      this.practice(ZOO.EVENT_TASKS, "Problem solved!", () => { A.event = null; Store.save(); this.bump("events"); Plan.addXP(ZOO.EVENT_BONUS); this.checkZoo(); }); };
+      this.practice(ZOO.EVENT_TASKS, "Problem solved!", () => { A.event = null; Store.save(); this.bump("events"); Plan.addXP(ZOO.EVENT_BONUS); this.checkZoo(); }, false, id); };
   },
 
   feed(a, d) {
@@ -3486,7 +3490,7 @@ const App = {
     if (tb) tb.onclick = () => {
       d.hidden = true;
       this.afterMsg = () => this.playDialog(a);
-      this.practice(ZOO.TOY_TASKS, "Toy unlocked!", () => { A.animals[id].toy = U.today(); Store.save(); this.bump("toys"); this.checkZoo(); });
+      this.practice(ZOO.TOY_TASKS, "Toy unlocked!", () => { A.animals[id].toy = U.today(); Store.save(); this.bump("toys"); this.checkZoo(); }, false, id);
     };
   },
 
