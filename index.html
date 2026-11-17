@@ -308,7 +308,7 @@ body { background: var(--bg) repeating-linear-gradient(0deg, transparent 0 22px,
 .scene .actor { position: absolute; left: 0; top: 0; opacity: 0; line-height: 0; }
 .scene .actor .px-frame { width: 100%; height: auto; image-rendering: pixelated; display: block; }
 .scene .actor .px-frame.step { animation: bob .5s steps(2) infinite; }
-.cue { position: absolute; width: 0; height: 0; animation-name: cueRun; animation-fill-mode: forwards; animation-iteration-count: 1; }
+.cue { position: absolute; width: 0; height: 0; animation-name: cueRun; animation-timing-function: linear; }
 @keyframes cueRun { from { opacity: 0; } to { opacity: 0; } }
 .zoo-status { background: var(--card); border: 3px solid var(--line); border-radius: 8px; padding: 8px 12px; margin-bottom: 12px; }
 .zs-row { display: flex; align-items: center; gap: 8px; font-weight: 700; padding: 3px 0; }
@@ -449,7 +449,7 @@ body.in-lesson .bottom-nav { display: none; }
 <div class="wrap" id="app"></div>
 <div id="lesson" hidden></div>
 <script>
-const APP_VERSION = "1.13";
+const APP_VERSION = "1.15";
 /* =====================================================================
    VOKABELN
    ---------------------------------------------------------------------
@@ -3003,10 +3003,21 @@ const Routine = {
       if (!first) first = wrap;
     });
     // Töne passend zur Animation (über eine unsichtbare CSS-Spur, kein Timer)
-    r.sounds.forEach(sd => {
+    // Töne bei jeder Wiederholung der Runde, im Takt der Animation – auch in der Zoo-Übersicht.
+    // Still während der Aufgaben; ist ein Gehege groß geöffnet, tönt nur dieses (nicht doppelt).
+    if (opts.sound) r.sounds.forEach(sd => {
       const cue = document.createElement("div"); cue.className = "cue";
-      cue.style.animationDuration = Math.max(0.01, sd.at).toFixed(2) + "s";
-      cue.addEventListener("animationend", () => { if (cue.isConnected) Sound.play(sd.sound); }, { once: true });
+      cue.style.animationDuration = r.T.toFixed(2) + "s";
+      cue.style.animationDelay = sd.at.toFixed(2) + "s";
+      cue.style.animationIterationCount = opts.once ? "1" : "infinite";
+      const ring = () => {
+        if (!cue.isConnected || document.hidden || document.body.classList.contains("in-lesson")) return;
+        const dlg = document.querySelector(".dialog:not([hidden])");
+        if (dlg && !dlg.contains(cue)) return;
+        Sound.play(sd.sound);
+      };
+      cue.addEventListener("animationstart", ring);
+      cue.addEventListener("animationiteration", ring);
       el.appendChild(cue);
     });
     if (opts.onEnd && first) first.addEventListener("animationend", e => { if (e.target === first) opts.onEnd(); }, { once: false });
@@ -3481,13 +3492,13 @@ const App = {
       b.appendChild(Pix.icon("sadheart")); el.appendChild(b);
     } else if (opts.play) {
       // einmaliges Spiel mit dem Spielzeug
-      Routine.mount(el, "play_" + a.id, PLAYS[a.id], { once: true, onEnd: opts.onEnd });
+      Routine.mount(el, "play_" + a.id, PLAYS[a.id], { once: true, onEnd: opts.onEnd, sound: true });
       if (friend) Routine.mount(el, a.id + "_friend", this.friendRoutine(a.id), F.delay ? { delay: F.delay } : {});
     } else if (hu === 0 && ROUTINES[a.id] && !evNow) {
       // satt: das Tier spielt (rutschen, tauchen, fliegen …) – mit Spielzeug auch immer wieder damit
       const withToy = this.played(a.id);
       const key = withToy ? a.id + "_toy" : a.id, segs = withToy ? this.toyRoutine(a.id) : ROUTINES[a.id];
-      Routine.mount(el, key, segs);
+      Routine.mount(el, key, segs, { sound: true });
       // das zweite Tier macht seine eigene Runde (das Spielzeug gehört beiden)
       if (friend) Routine.mount(el, a.id + "_friend", this.friendRoutine(a.id), F.delay ? { delay: F.delay } : {});
     } else {
