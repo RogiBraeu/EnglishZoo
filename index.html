@@ -246,6 +246,8 @@ body.in-lesson .pwa-banner { display: none; }
 .vr-txt b { font-size: 18px; } .vr-txt span { font-size: 14px; color: var(--muted); }
 .vr-play { width: 38px; height: 38px; border-radius: 50%; background: var(--say-bg); display: flex; align-items: center; justify-content: center; font-size: 15px; }
 
+.ver { font-size: 15px; font-weight: 700; color: var(--muted); margin-left: 6px; font-family: var(--font); }
+
 body { background: var(--bg) repeating-linear-gradient(0deg, transparent 0 22px, rgba(139,90,43,.05) 22px 24px); }
 .wrap { padding-bottom: calc(110px + env(safe-area-inset-bottom)); }
 .btn { border: 3px solid var(--wood-dark); box-shadow: 0 4px 0 var(--wood-dark); font-family: var(--pixel); font-weight: 700; letter-spacing: .3px; }
@@ -320,6 +322,32 @@ body { background: var(--bg) repeating-linear-gradient(0deg, transparent 0 22px,
 .px.tear.t1 { animation-delay: .55s; margin-left: 1.6%; }
 @keyframes tearFall { 0% { opacity: 0; transform: translateY(0); } 15% { opacity: 1; } 100% { opacity: 0; transform: translateY(260%); } }
 .sad-row { background: #E3EEFB; border-color: #9DB7DA; }
+.bi { display: flex; flex-direction: column; }
+.bi .en, .bi-btn .en, .dlg-en { font-style: italic; font-weight: 600; font-size: 15px; color: #2F6DB5; }
+.dlg-en { margin: -4px 0 4px; font-size: 16px; }
+.bi-btn { display: flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1.2; }
+.bi-btn .en { color: rgba(255,255,255,.85); font-family: var(--font); font-size: 14px; margin-top: 2px; }
+.btn.ghost.bi-btn .en, .btn:not(.primary).bi-btn .en { color: #2F6DB5; }
+.btn.joker { background: #FF9A3C; border-color: #B85E12; box-shadow: 0 5px 0 #B85E12; color: #fff; }
+.btn.joker .en { color: rgba(255,255,255,.9); }
+.zs-next { font-size: 13px; color: var(--muted); font-weight: 700; min-width: 54px; text-align: right; }
+.mio-run { position: absolute; width: 17%; left: -20%; top: 45%; z-index: 5; animation: mioRun 2.6s linear forwards; }
+.mio-run .mio { width: 100%; }
+.mio-run .run-broom { position: absolute; width: 60%; right: -30%; bottom: -4%; image-rendering: pixelated; animation: sweepBroom .25s steps(2) infinite; }
+@keyframes sweepBroom { 50% { transform: rotate(-25deg); } }
+@keyframes mioRun {
+  0% { left: -20%; top: 50%; transform: scaleX(1); } 32% { left: 82%; top: 28%; transform: scaleX(1); }
+  33% { left: 82%; top: 28%; transform: scaleX(-1); } 65% { left: 2%; top: 58%; transform: scaleX(-1); }
+  66% { left: 2%; top: 58%; transform: scaleX(1); } 100% { left: 105%; top: 40%; transform: scaleX(1); } }
+canvas.dirt.sweep { animation: sweepOut 2.6s linear forwards; }
+@keyframes sweepOut { 0% { opacity: 1; } 85% { opacity: 0; } 100% { opacity: 0; } }
+.joker-pic { position: relative; width: 120px; margin: 0 auto; }
+.joker-mio .mio { width: 120px; }
+.joker-broom { position: absolute; width: 60px; right: -38px; bottom: 0; image-rendering: pixelated; }
+.en-inline { color: #2F6DB5; font-weight: 600; }
+.locked-row { opacity: .6; }
+.lock-ico { width: 44px; text-align: center; font-size: 30px; }
+.have { font-size: 26px; min-width: 96px; text-align: center; }
 .title-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .title-row .pill { font-family: var(--font); font-size: 17px; }
 .bottom-nav button { font-size: 18px; white-space: nowrap; padding: 0 4px; }
@@ -387,7 +415,7 @@ body.in-lesson .bottom-nav { display: none; }
 <div class="wrap" id="app"></div>
 <div id="lesson" hidden></div>
 <script>
-const APP_VERSION = "3";
+const APP_VERSION = "1.09";
 /* =====================================================================
    VOKABELN
    ---------------------------------------------------------------------
@@ -771,6 +799,7 @@ const Sound = {
       else if (name === "finish") { [523, 659, 784, 659, 784, 1047].forEach((f, i) => this.tone(f, i * .11, .26, "triangle", .2)); }
       else if (name === "tap") { this.tone(880, 0, .05, "sine", .06); }
       else if (name === "trumpet") { this.tone(233, 0, .22, "sawtooth", .09); this.tone(311, .18, .22, "sawtooth", .09); this.tone(466, .38, .55, "sawtooth", .11); }
+      else if (name === "sweep") { [880, 660, 990, 740, 1100, 820].forEach((f, i) => this.tone(f, i * .12, .1, "sine", .05)); }
       else if (name === "coin") { this.tone(988, 0, .08, "square", .07); this.tone(1319, .07, .18, "square", .07); }
     } catch (e) {}
   }
@@ -863,28 +892,68 @@ const Speech = {
   }
 };
 
-/* ---------- Konfetti ---------- */
+/* ---------- Jubel-Effekte: Konfetti, Herzen, Sterne, Feuerwerk, Luftballons ---------- */
 const Confetti = {
-  canvas: null, parts: [], running: false,
-  burst(n) {
+  canvas: null, parts: [], running: false, last: null,
+  TYPES: ["confetti", "hearts", "stars", "fireworks", "balloons"],
+  COLS: ["#FF8A3D", "#FFD23F", "#3BC9A0", "#4D96FF", "#FF6B9A", "#A78BFA"],
+  /* abwechselnd: nie zweimal hintereinander derselbe Effekt */
+  pick() { const t = U.pick(this.TYPES.filter(x => x !== this.last)); this.last = t; return t; },
+  burst(n, type) {
     if (!this.canvas) {
       this.canvas = document.createElement("canvas"); this.canvas.className = "confetti";
       document.body.appendChild(this.canvas);
     }
-    const c = this.canvas; c.width = innerWidth * devicePixelRatio; c.height = innerHeight * devicePixelRatio;
-    const cols = ["#FF8A3D", "#FFD23F", "#3BC9A0", "#4D96FF", "#FF6B9A", "#A78BFA"];
-    for (let i = 0; i < (n || 80); i++) this.parts.push({
-      x: c.width * (0.2 + Math.random() * 0.6), y: c.height * 0.35, vx: (Math.random() - .5) * 16 * devicePixelRatio,
-      vy: (-Math.random() * 14 - 6) * devicePixelRatio, s: (6 + Math.random() * 6) * devicePixelRatio, r: Math.random() * 6,
-      vr: (Math.random() - .5) * .4, col: U.pick(cols), life: 0 });
+    const c = this.canvas, d = devicePixelRatio || 1;
+    if (!this.running) { c.width = innerWidth * d; c.height = innerHeight * d; }
+    const W = c.width, H = c.height;
+    type = type || "confetti"; n = n || 80;
+    const add = p => this.parts.push(Object.assign({ life: 0, delay: 0, r: 0, vr: 0, alpha: 1, col: U.pick(this.COLS), kind: type }, p));
+    if (type === "fireworks") {
+      const shots = Math.max(2, Math.min(4, Math.round(n / 40)));
+      for (let k = 0; k < shots; k++) {
+        const cx = W * (0.2 + Math.random() * 0.6), cy = H * (0.15 + Math.random() * 0.3), col = U.pick(this.COLS), m = Math.round(n / shots) + 20;
+        for (let i = 0; i < m; i++) {
+          const a = (Math.PI * 2 * i) / m, v = (3.5 + Math.random() * 5.5) * d;
+          add({ x: cx, y: cy, vx: Math.cos(a) * v, vy: Math.sin(a) * v, s: 4.5 * d, col: Math.random() < 0.7 ? col : "#FFFFFF", delay: k * 14, max: 70 });
+        }
+      }
+    } else if (type === "balloons") {
+      for (let i = 0; i < Math.max(6, Math.round(n / 7)); i++)
+        add({ x: W * (0.08 + Math.random() * 0.84), y: H + Math.random() * H * 0.25, vx: 0, vy: (-9 - Math.random() * 6) * d, s: (16 + Math.random() * 10) * d, sway: Math.random() * 6, max: 150 });
+    } else {
+      for (let i = 0; i < n; i++)
+        add({ x: W * (0.2 + Math.random() * 0.6), y: H * 0.35, vx: (Math.random() - .5) * 16 * d, vy: (-Math.random() * 14 - 6) * d,
+          s: (type === "confetti" ? 6 + Math.random() * 6 : 10 + Math.random() * 8) * d, r: Math.random() * 6, vr: (Math.random() - .5) * .3, max: 240 });
+    }
     if (!this.running) { this.running = true; requestAnimationFrame(() => this.step()); }
   },
+  heart(g, s) { g.beginPath(); g.moveTo(0, s * .3); g.bezierCurveTo(-s * .9, -s * .35, -s * .35, -s * .9, 0, -s * .35);
+    g.bezierCurveTo(s * .35, -s * .9, s * .9, -s * .35, 0, s * .3); g.fill(); },
+  star(g, s) { g.beginPath(); for (let i = 0; i < 10; i++) { const a = -Math.PI / 2 + i * Math.PI / 5, r = i % 2 ? s * .4 : s * .9; g.lineTo(Math.cos(a) * r, Math.sin(a) * r); } g.closePath(); g.fill(); },
   step() {
-    const c = this.canvas, g = c.getContext("2d");
+    const c = this.canvas, g = c.getContext("2d"), d = devicePixelRatio || 1;
     g.clearRect(0, 0, c.width, c.height);
-    this.parts.forEach(p => { p.vy += .45 * devicePixelRatio; p.x += p.vx; p.y += p.vy; p.vx *= .99; p.r += p.vr; p.life++;
-      g.save(); g.translate(p.x, p.y); g.rotate(p.r); g.fillStyle = p.col; g.fillRect(-p.s / 2, -p.s / 4, p.s, p.s / 2); g.restore(); });
-    this.parts = this.parts.filter(p => p.y < c.height + 40 && p.life < 240);
+    this.parts.forEach(p => {
+      if (p.delay > 0) { p.delay--; return; }
+      p.life++;
+      if (p.kind === "fireworks") { p.vx *= .96; p.vy = p.vy * .96 + .12 * d; p.alpha = Math.max(0, 1 - p.life / p.max); }
+      else if (p.kind === "balloons") { p.vy *= .995; p.x += Math.sin((p.life + p.sway * 10) / 12) * 1.2 * d; }
+      else { p.vy += .45 * d; p.vx *= .99; p.r += p.vr; }
+      p.x += p.vx; p.y += p.vy;
+      g.save(); g.globalAlpha = p.alpha; g.translate(p.x, p.y); g.fillStyle = p.col;
+      if (p.kind === "hearts") { g.rotate(p.r * .3); this.heart(g, p.s); }
+      else if (p.kind === "stars") { g.rotate(p.r); this.star(g, p.s); }
+      else if (p.kind === "fireworks") { g.beginPath(); g.arc(0, 0, p.s, 0, Math.PI * 2); g.fill(); }
+      else if (p.kind === "balloons") {
+        g.beginPath(); g.ellipse(0, 0, p.s * .8, p.s, 0, 0, Math.PI * 2); g.fill();
+        g.globalAlpha = p.alpha * .35; g.fillStyle = "#fff"; g.beginPath(); g.ellipse(-p.s * .3, -p.s * .35, p.s * .18, p.s * .28, 0, 0, Math.PI * 2); g.fill();
+        g.globalAlpha = p.alpha; g.strokeStyle = "rgba(0,0,0,.35)"; g.lineWidth = 1.5 * d; g.beginPath(); g.moveTo(0, p.s); g.lineTo(Math.sin(p.life / 6) * 4 * d, p.s * 2.4); g.stroke();
+      }
+      else { g.rotate(p.r); g.fillRect(-p.s / 2, -p.s / 4, p.s, p.s / 2); }
+      g.restore();
+    });
+    this.parts = this.parts.filter(p => p.delay > 0 || (p.life < p.max && p.y < c.height + 60 && p.y > -c.height * 0.5 && p.alpha > 0));
     if (this.parts.length) requestAnimationFrame(() => this.step());
     else { this.running = false; g.clearRect(0, 0, c.width, c.height); }
   }
@@ -1120,7 +1189,10 @@ const Lesson = {
       const g = item.retry ? this.xp.retry : this.xp.correct;
       if (!info.noGain && g > 0) text += `<div class="gain">+${g} XP${combo && this.xp.combo ? ` &nbsp;+${this.xp.combo} Bonus` : ""}</div>`;
       Sound.play(combo ? "combo" : "correct");
-      Confetti.burst(combo ? 140 : 45);
+      // Jubel abwechselnd: Konfetti, Herzen, Sterne, Feuerwerk, Luftballons
+      const fx = Confetti.pick();
+      Confetti.burst(combo ? 140 : (fx === "fireworks" ? 90 : 45), fx);
+      if (combo && fx !== "fireworks") Confetti.burst(80, "fireworks");
     } else {
       title = info.spell ? "Fast! Schau dir die Stelle genau an." : U.pick(Mio.cheerUp);
       text = info.html || (info.correct ? `Richtig ist: <b>${U.esc(info.correct)}</b>` : "");
@@ -1148,7 +1220,7 @@ const Lesson = {
       const pack = Plan.packs(this.plan.setId)[this.plan.packIndex];
       if (pack && pack.done) { const t = U.today(); Store.data.packsDone[t] = (Store.data.packsDone[t] || 0) + 1; Store.save(); }
     }
-    Sound.play("finish"); Confetti.burst(160); setTimeout(() => Confetti.burst(120), 600);
+    Sound.play("finish"); Confetti.burst(160); Confetti.burst(140, "fireworks");
     const body = this.root.querySelector(".ls-body"), foot = this.root.querySelector(".ls-foot");
     this.root.querySelector(".ls-fill").style.width = "100%";
     const acc = st.answered ? Math.round(100 * st.correctFirst / Math.max(1, st.answered)) : 100;
@@ -1587,6 +1659,25 @@ const SPR = {
     "kGk..kGGk...kGGk..",
     ".k...kGGk...kGGk..",
     ".....kkkk...kkkk.."],
+  elephant_trumpet: [
+    "kk................",
+    "kGk...............",
+    "kGk...............",
+    ".kGk..............",
+    ".kGk..kkkkkkkk....",
+    "..kGkkGGGGGGGGkk..",
+    "..kGgGGGGGGGGGGGk.",
+    ".kGggGGGGGGGGGGGGk",
+    "kGGggGkGGGGGGGGGGk",
+    "kGGggGGGGGGGGGGGGk",
+    "kGGgGGGGGGGGGGGGGk",
+    ".kGGGkGGGGGGGGGGGk",
+    "..kwkkGGGGGGGGGGGk",
+    ".....kGGGGGGGGGGGk",
+    ".....kGGGkkkkGGGk.",
+    ".....kGGk...kGGk..",
+    ".....kGGk...kGGk..",
+    ".....kkkk...kkkk.."],
   tiger: [
     ".kk..kk.............",
     "kttkkttk............",
@@ -1899,6 +1990,87 @@ const SPR = {
     ".kGkGk.",
     "..kkk..",
     "...k..."],
+  broom: [
+    ".......kk.",
+    "......knk.",
+    ".....knk..",
+    "....knk...",
+    "...knk....",
+    "..kYYk....",
+    ".kyyyyk...",
+    "kyyYyyyk..",
+    "kyYyyYyk..",
+    "kkkkkkkk.."],
+  zebra: [
+    "....k.k...............",
+    "...kwkwk..............",
+    "...kwwwDk.............",
+    "..kwwwkwDk............",
+    ".kwkwwwkwDk...........",
+    "kwwwwwwwkwDk..........",
+    ".kDDwwwwwkwkkk.kk.kk..",
+    "kDDDwkkkkwwkwwkwwkwwk.",
+    ".kkkk...kwwkwwkwwkwwk.",
+    "........kwwwkwwkwwkwk.",
+    "........kwwwkwwkwwkwk.",
+    "........kwwkwwkwwkwwDk",
+    ".........kwwkk.kkwwkDk",
+    "..........kwk....kwkk.",
+    ".........kwwk...kwwk..",
+    ".........kDDk...kDDk..",
+    "..........kk.....kk..."],
+  zebra_graze: [
+    ".......k..............",
+    "......kwkkk.kk.kk.kk..",
+    ".....kwkDDDkwwkwwkwwk.",
+    ".....kkwkwwkwwkwwkwwk.",
+    "...kkwwkwwwwkwwkwwkwk.",
+    ".kkwkwkwwwwwkwwkwwkwk.",
+    "kwwwwwwwkwwkwwkwwkwwDk",
+    "kDDDwwkk.kwwkk.kkwwkDk",
+    "kDDDkk....kwk....kwkk.",
+    ".kkk.....kwwk...kwwk..",
+    ".........kDDk...kDDk..",
+    "..........kk.....kk..."],
+  zebra_sleep: [
+    "....k.k...............",
+    "...kwkwk..............",
+    "...kwwwDk.............",
+    "..kwwwkwDk............",
+    ".kDDwwwkwDk...........",
+    "kwwwwwwwkwDk..........",
+    ".kDDwwwwwkwkkk.kk.kk..",
+    "kDDDwkkkkwwkwwkwwkwwk.",
+    ".kkkk...kwwkwwkwwkwwk.",
+    "........kwwwkwwkwwkwk.",
+    "........kwwwkwwkwwkwk.",
+    "........kwwkwwkwwkwwDk",
+    ".........kwwkk.kkwwkDk",
+    "..........kwk....kwkk.",
+    ".........kwwk...kwwk..",
+    ".........kDDk...kDDk..",
+    "..........kk.....kk..."],
+  brush: [
+    "..kk......",
+    ".knnk.....",
+    ".knnk.....",
+    ".knnkkkkk.",
+    ".knnkNNNNk",
+    ".knnkyYyYk",
+    ".knnkYyYyk",
+    ".knnkyYyYk",
+    ".knnkkkkkk",
+    ".knnk.....",
+    ".knnk.....",
+    "kknnkk....",
+    "knnnnk....",
+    "kkkkkk...."],
+  dust: [
+    "..c..N....",
+    ".ccc.cc.c.",
+    "cNcccNccc.",
+    ".cc.ccc.cc",
+    "..c...c..."],
   plank: [
     "kkk......kkk",
     "kNk.....kNNk",
@@ -1961,7 +2133,14 @@ const Scene = {
     this.ell(g, x + 1, y - 1, 10, 3, "#3f7f2f"); this.ell(g, x + 1, y - 2, 9, 2, "#5f9f3f");
   },
   rock(g, x, y, snow) { this.ell(g, x, y, 4, 3, "#7b7f8c"); this.ell(g, x - 1, y - 1, 3, 2, snow ? "#ffffff" : "#a3a8b5"); },
-  draw(canvas, animal) {
+  line(g, x0, y0, x1, y1, c) {
+    g.fillStyle = c;
+    const dx = Math.abs(x1 - x0), dy = -Math.abs(y1 - y0), sx = x0 < x1 ? 1 : -1, sy = y0 < y1 ? 1 : -1;
+    let err = dx + dy;
+    for (;;) { g.fillRect(x0, y0, 1, 1); if (x0 === x1 && y0 === y1) break; const e2 = 2 * err; if (e2 >= dy) { err += dy; x0 += sx; } if (e2 <= dx) { err += dx; y0 += sy; } }
+  },
+  draw(canvas, animal, extra) {
+    extra = extra || {};
     const g = canvas.getContext("2d"), r = Pix.rng(animal.id), W = 64, H = 44;
     canvas.width = W; canvas.height = H;
     this.fill(g, 0, 0, W, H, "#6abe4b");
@@ -1980,10 +2159,19 @@ const Scene = {
       this.fill(g, 3, 5, 58, 35, "#5fae45"); this.speck(g, r, 3, 5, 58, 35, 60, ["#4f9a3c", "#79c85a"]);
       this.tree(g, 11, 14, true); this.tree(g, 53, 15, true); this.tree(g, 44, 10);
       this.fill(g, 20, 20, 12, 2, "#7a4b2a"); this.fill(g, 20, 20, 12, 1, "#9a6a3a"); this.fill(g, 21, 22, 2, 12, "#7a4b2a");
+      // zweite Sitzstange, sobald eine zweite Eule da ist
+      if (extra.perch2) { this.fill(g, 38, 26, 13, 2, "#7a4b2a"); this.fill(g, 38, 26, 13, 1, "#9a6a3a"); this.fill(g, 48, 28, 2, 8, "#7a4b2a"); }
     } else if (hab === "savanna") {
       this.fill(g, 3, 5, 58, 35, "#e8c96f"); this.speck(g, r, 3, 5, 58, 35, 70, ["#d4b05a", "#f2da8c"]);
       for (let i = 0; i < 10; i++) { const x = 6 + Math.floor(r() * 52), y = 8 + Math.floor(r() * 30); this.fill(g, x, y, 1, 2, "#8f9e3a"); this.fill(g, x + 1, y - 1, 1, 3, "#a8b84a"); this.fill(g, x + 2, y, 1, 2, "#8f9e3a"); }
       if (animal.id === "giraffe") this.acacia(g, 49, 10);
+      else if (animal.id === "zebra") {
+        // Sandplatz zum Wälzen, Grasflecken zum Grasen, Wassertränke
+        this.ell(g, 22, 33, 11, 4, "#f2dc9a"); this.speck(g, r, 12, 30, 20, 7, 14, ["#e2c67e", "#fbe9b4"]);
+        [[30, 14], [14, 13], [40, 22]].forEach(([x, y]) => { for (let i = 0; i < 9; i++) this.fill(g, x + (i % 5) * 2 - 4, y + Math.floor(i / 5) * 2, 1, 2, i % 2 ? "#7fae3a" : "#94c24a"); });
+        this.fill(g, 47, 28, 11, 5, "#8b5a2b"); this.fill(g, 47, 28, 11, 1, "#b07a42"); this.fill(g, 48, 29, 9, 2, "#5aaee0"); this.fill(g, 49, 29, 3, 1, "#a8dcf7");
+        this.fill(g, 48, 33, 1, 2, "#5e3a1a"); this.fill(g, 56, 33, 1, 2, "#5e3a1a");
+      }
       else { this.ell(g, 50, 30, 8, 4, "#3a8fd0"); this.ell(g, 50, 30, 7, 3, "#5aaee0"); this.fill(g, 47, 29, 3, 1, "#a8dcf7"); }
       this.rock(g, 10, 12);
     } else if (hab === "jungle") {
@@ -2002,6 +2190,46 @@ const Scene = {
     post(26, 36); post(36, 36);
     // Weg zum Tor
     this.fill(g, 28, 40, 8, 4, "#cfa86a"); this.speck(g, r, 28, 40, 8, 4, 8, ["#b8915a"]);
+  },
+  /* Grafik für gehege-typische Ereignisse */
+  eventOverlay(canvas, kind, animal) {
+    canvas.width = 64; canvas.height = 44;
+    const g = canvas.getContext("2d"), r = Pix.rng(animal.id + kind);
+    if (kind === "mudpool") {            // Robbe: Becken voller Schlamm
+      this.ell(g, 32, 20, 22, 10, "#6e4a28"); this.ell(g, 32, 20, 20, 9, "#7a5530");
+      for (let i = 0; i < 70; i++) { const x = 12 + Math.floor(r() * 40), y = 12 + Math.floor(r() * 17);
+        if (((x - 32) / 20) ** 2 + ((y - 20) / 9) ** 2 <= 1) this.fill(g, x, y, 1 + (i % 2), 1, i % 3 ? "#5e3f22" : "#94693c"); }
+      [[20, 16], [38, 22], [28, 25], [44, 15]].forEach(([x, y]) => { this.fill(g, x, y, 2, 1, "#a07a4a"); this.fill(g, x, y - 1, 1, 1, "#b8925e"); });
+    } else if (kind === "frozen") {      // Pinguine: Eisloch zugefroren
+      this.ell(g, 47, 15, 10, 5, "#e6f6fd"); this.ell(g, 46, 14, 7, 3, "#f6fcff");
+      this.line(g, 40, 13, 46, 16, "#9ccde6"); this.line(g, 46, 16, 52, 12, "#9ccde6"); this.line(g, 46, 16, 48, 19, "#9ccde6"); this.line(g, 50, 14, 55, 16, "#9ccde6");
+      this.fill(g, 43, 12, 2, 1, "#ffffff"); this.fill(g, 51, 17, 2, 1, "#ffffff");
+    } else if (kind === "perch") {       // Eule: Sitzstange zerbrochen
+      this.fill(g, 20, 20, 12, 2, "#5fae45"); this.fill(g, 21, 22, 2, 6, "#5fae45");
+      this.fill(g, 21, 28, 2, 1, "#9a6a3a");
+      this.line(g, 15, 35, 21, 33, "#7a4b2a"); this.line(g, 15, 36, 21, 34, "#5e3a1a");
+      this.line(g, 25, 33, 31, 35, "#7a4b2a"); this.line(g, 25, 34, 31, 36, "#5e3a1a");
+      [[22, 32], [24, 35], [19, 31]].forEach(([x, y]) => this.fill(g, x, y, 1, 1, "#9a6a3a"));
+    } else if (kind === "dryhole") {     // Elefant: Wasserloch ausgetrocknet
+      this.ell(g, 50, 30, 8, 4, "#a8793e"); this.ell(g, 50, 30, 7, 3, "#c79a58");
+      this.line(g, 45, 29, 49, 31, "#8a6233"); this.line(g, 49, 31, 54, 29, "#8a6233"); this.line(g, 49, 31, 50, 33, "#8a6233"); this.line(g, 52, 28, 55, 31, "#8a6233");
+    } else if (kind === "trough") {     // Zebra: Wassertränke umgekippt
+      this.fill(g, 47, 28, 11, 7, "#e8c96f");
+      this.ell(g, 47, 34, 9, 3, "#3a8fd0"); this.ell(g, 47, 34, 8, 2, "#5aaee0"); this.fill(g, 43, 33, 3, 1, "#a8dcf7");
+      this.fill(g, 52, 24, 5, 11, "#8b5a2b"); this.fill(g, 52, 24, 1, 11, "#b07a42"); this.fill(g, 53, 25, 3, 9, "#6e4524");
+      this.fill(g, 57, 26, 2, 1, "#5e3a1a"); this.fill(g, 57, 32, 2, 1, "#5e3a1a");
+    } else if (kind === "grass") {       // Tiger: Gras viel zu hoch
+      for (let i = 0; i < 70; i++) {
+        const x = 5 + Math.floor(r() * 54), y = 12 + Math.floor(r() * 26), h = 3 + Math.floor(r() * 4);
+        this.fill(g, x, y - h, 1, h, i % 3 === 0 ? "#2f7a2e" : i % 3 === 1 ? "#4f9e3f" : "#6fbf5a");
+        if (i % 4 === 0) this.fill(g, x + 1, y - h + 1, 1, h - 1, "#3f8a32");
+      }
+    } else if (kind === "baretree") {    // Giraffe: Futterbaum ohne Blätter
+      this.ell(g, 50, 9, 11, 4, "#e8c96f"); this.speck(g, r, 40, 5, 21, 8, 10, ["#d4b05a"]);
+      this.fill(g, 49, 10, 2, 12, "#7a4b2a");
+      this.line(g, 50, 10, 42, 6, "#7a4b2a"); this.line(g, 50, 10, 58, 6, "#7a4b2a"); this.line(g, 50, 9, 46, 5, "#5e3a1a"); this.line(g, 51, 9, 55, 5, "#5e3a1a");
+      [[44, 30], [47, 32], [53, 31], [56, 33], [41, 33]].forEach(([x, y]) => this.fill(g, x, y, 2, 1, "#a8b84a"));
+    }
   },
   dirt(canvas, animal, level) {
     canvas.width = 64; canvas.height = 44;
@@ -2276,27 +2504,63 @@ const PWA = {
    ZOO-APP: Zoo, Shop, Futter, Putzen, Ereignisse
    ===================================================================== */
 const ANIMALS = [
-  { id: "penguin", eye: [4, 3], fuer: "die Pinguine", name: "Pinguin", der: "Der Pinguin", sie: "ihn", food: "fish", habitat: "ice", pos: [17, 21], twin: [33, 24] },
-  { id: "seal", eye: [11, 2], fuer: "die Robbe", name: "Robbe", der: "Die Robbe", sie: "sie", food: "fish", habitat: "water", pos: [22, 20] },
-  { id: "owl", eye: [3, 5], fuer: "die Eule", name: "Eule", der: "Die Eule", sie: "sie", food: "meat", habitat: "forest", pos: [20, 7] },
-  { id: "elephant", eye: [6, 4], fuer: "den Elefanten", name: "Elefant", der: "Der Elefant", sie: "ihn", food: "feed", habitat: "savanna", pos: [15, 18] },
-  { id: "tiger", eye: [2, 3], fuer: "den Tiger", name: "Tiger", der: "Der Tiger", sie: "ihn", food: "meat", habitat: "jungle", pos: [18, 21] },
-  { id: "giraffe", eye: [3, 3], fuer: "die Giraffe", name: "Giraffe", der: "Die Giraffe", sie: "sie", food: "feed", habitat: "savanna", pos: [18, 12] }
+  { id: "penguin", er: "Er", en: "penguin", enPl: "penguins", geh: "Pinguin", eye: [4, 3], fuer: "den Pinguin", name: "Pinguin", der: "Der Pinguin", sie: "ihn", food: "fish", habitat: "ice", pos: [17, 21] },
+  { id: "seal", er: "Sie", en: "seal", enPl: "seals", geh: "Robben", eye: [11, 2], fuer: "die Robbe", name: "Robbe", der: "Die Robbe", sie: "sie", food: "fish", habitat: "water", pos: [22, 20] },
+  { id: "owl", er: "Sie", en: "owl", enPl: "owls", geh: "Eulen", eye: [3, 5], fuer: "die Eule", name: "Eule", der: "Die Eule", sie: "sie", food: "meat", habitat: "forest", pos: [20, 7] },
+  { id: "elephant", er: "Er", en: "elephant", enPl: "elephants", geh: "Elefanten", eye: [6, 4], fuer: "den Elefanten", name: "Elefant", der: "Der Elefant", sie: "ihn", food: "feed", habitat: "savanna", pos: [15, 18] },
+  { id: "zebra", er: "Es", en: "zebra", enPl: "zebras", geh: "Zebra", eye: [3, 4], fuer: "das Zebra", name: "Zebra", der: "Das Zebra", sie: "es", food: "feed", habitat: "savanna", pos: [22, 19] },
+  { id: "tiger", er: "Er", en: "tiger", enPl: "tigers", geh: "Tiger", eye: [2, 3], fuer: "den Tiger", name: "Tiger", der: "Der Tiger", sie: "ihn", food: "meat", habitat: "jungle", pos: [18, 21] },
+  { id: "giraffe", er: "Sie", en: "giraffe", enPl: "giraffes", geh: "Giraffen", eye: [3, 3], fuer: "die Giraffe", name: "Giraffe", der: "Die Giraffe", sie: "sie", food: "feed", habitat: "savanna", pos: [18, 12] }
 ];
 const FOODS = {
-  fish: { name: "Fisch", price: 40 },
-  meat: { name: "Fleisch", price: 40 },
-  feed: { name: "Kraftfutter", price: 40 }
+  fish: { en: "fish", name: "Fisch", price: 35 },
+  meat: { en: "meat", name: "Fleisch", price: 35 },
+  feed: { en: "special food", name: "Kraftfutter", price: 35 }
 };
 const EVENTS = {
-  tree: { title: "Ein Baum ist vor das Gehege gefallen!", action: "Baum wegräumen", done: "Der Baum ist weg!", sprite: "log", pos: [18, 35] },
-  wall: { title: "Eine Mauer ist eingestürzt!", action: "Mauer reparieren", done: "Die Mauer steht wieder!", sprite: "rubble", pos: [38, 0] },
-  fence: { title: "Der Zaun hat ein Loch!", action: "Zaun flicken", done: "Der Zaun ist wieder heil!", sprite: "plank", pos: [6, 35] },
-  mud: { title: "Nach dem Regen ist alles voller Matsch!", action: "Matsch wegschaufeln", done: "Alles wieder sauber!", sprite: "mud", pos: [22, 25] }
+  tree: { enTitle: "A tree has fallen in front of the enclosure!", enAction: "Move the tree", title: "Ein Baum ist vor das Gehege gefallen!", action: "Baum wegräumen", done: "Der Baum ist weg!", sprite: "log", pos: [18, 35] },
+  wall: { enTitle: "A wall has fallen down!", enAction: "Repair the wall", title: "Eine Mauer ist eingestürzt!", action: "Mauer reparieren", done: "Die Mauer steht wieder!", sprite: "rubble", pos: [38, 0] },
+  fence: { enTitle: "There is a hole in the fence!", enAction: "Fix the fence", title: "Der Zaun hat ein Loch!", action: "Zaun flicken", done: "Der Zaun ist wieder heil!", sprite: "plank", pos: [6, 35] },
+  mud: { enTitle: "After the rain, everything is muddy!", enAction: "Clear away the mud", title: "Nach dem Regen ist alles voller Matsch!", action: "Matsch wegschaufeln", done: "Alles wieder sauber!", sprite: "mud", pos: [22, 25] },
+  // passend zum Gehege (mit eigener Grafik)
+  mudpool: { enTitle: "The pool is full of mud!", enAction: "Clean the pool", only: "seal", title: "Das Becken ist voller Schlamm!", action: "Becken säubern", done: "Das Wasser ist wieder klar!", overlay: "mudpool" },
+  frozen: { enTitle: "The ice hole is frozen!", enAction: "Break the ice", only: "penguin", title: "Das Eisloch ist zugefroren!", action: "Eis aufhacken", done: "Das Eisloch ist wieder offen!", overlay: "frozen" },
+  perch: { enTitle: "The perch is broken!", enAction: "Repair the perch", only: "owl", title: "Die Sitzstange ist zerbrochen!", action: "Sitzstange reparieren", done: "Die Sitzstange ist wieder heil!", overlay: "perch", animalPos: [22, 24] },
+  dryhole: { enTitle: "The water hole is dry!", enAction: "Fill the water hole", only: "elephant", title: "Das Wasserloch ist ausgetrocknet!", action: "Wasser auffüllen", done: "Das Wasserloch ist wieder voll!", overlay: "dryhole" },
+  trough: { enTitle: "The water trough has tipped over!", enAction: "Set up the trough", only: "zebra", title: "Die Wassertränke ist umgekippt!", action: "Tränke aufstellen", done: "Die Tränke ist wieder voll!", overlay: "trough" },
+  grass: { enTitle: "The grass is much too long!", enAction: "Cut the grass", only: "tiger", title: "Das Gras ist viel zu hoch gewachsen!", action: "Rasen mähen", done: "Der Rasen ist gemäht!", overlay: "grass" },
+  baretree: { enTitle: "The tree has no leaves!", enAction: "Hang up fresh branches", only: "giraffe", title: "Der Futterbaum hat keine Blätter mehr!", action: "Frische Zweige aufhängen", done: "Der Baum ist wieder grün!", overlay: "baretree" }
 };
+
+/* Zweites Tier pro Gehege (im Shop kaufbar). pos = Platz, wenn es stillsteht;
+   delay/dx/dy = gleiche Routine wie das erste Tier, zeitversetzt und etwas verschoben */
+const FRIENDS = {
+  penguin: { plural: "Pinguine", name: "Zweiter Pinguin", ein: "ein zweiter Pinguin", pos: [33, 24], delay: 0.5, dx: 0, dy: 0 },
+  seal: { plural: "Robben", name: "Zweite Robbe", ein: "eine zweite Robbe", pos: [38, 28], delay: 0.5, dx: 0, dy: 0 },
+  owl: { plural: "Eulen", name: "Zweite Eule", ein: "eine zweite Eule", pos: [39, 13], own: "owl2" },
+  elephant: { plural: "Elefanten", name: "Zweiter Elefant", ein: "ein zweiter Elefant", pos: [36, 12], delay: 0.5, dx: 4, dy: -6 },
+  zebra: { plural: "Zebras", name: "Zweites Zebra", ein: "ein zweites Zebra", pos: [34, 8], delay: 0.5, dx: 0, dy: -4 },
+  tiger: { plural: "Tiger", name: "Zweiter Tiger", ein: "ein zweiter Tiger", pos: [36, 25], delay: 0.5, dx: 6, dy: 2 },
+  giraffe: { plural: "Giraffen", name: "Zweite Giraffe", ein: "eine zweite Giraffe", pos: [34, 12], delay: 0.5, dx: -6, dy: 0 }
+};
+const FRIEND_PRICE = 250;
+/* Mio-Joker: für je so viele insgesamt verdiente XP gibt es einen Joker (nichts wird abgezogen) */
+const JOKER_XP = 1000;
 /* Was die Tiere tun, wenn sie satt sind.
    f = Bild, a = Start (x,y), b = Ziel, t = Sekunden, flip = gespiegelt, fx = Zusatzbild (z. B. Wasserspritzer) */
 const Z = (a, b) => ({ f: "zzz", a, b });
+/* die zweite Eule hat ihre eigene Sitzstange */
+const OWL2 = [
+  { f: "owl", a: [39, 13], t: 1.6 },
+  { f: "owl_sleep", a: [39, 13], t: 2.4, fx: { f: "zzz", a: [50, 8], b: [53, 2] } },
+  { f: "owl", a: [39, 13], t: 0.8 },
+  { f: "owl_fly", a: [35, 11], b: [10, 20], t: 1.4 },
+  { f: "owl", a: [10, 24], t: 1.4 },
+  { f: "owl_fly", a: [8, 20], b: [30, 3], t: 1.2 },
+  { f: "owl_fly", a: [30, 3], b: [46, 6], t: 1.0, rot: [0, 360] },
+  { f: "owl_fly", a: [46, 6], b: [35, 11], t: 0.8 },
+  { f: "owl", a: [39, 13], t: 1.2 }
+];
 const ROUTINES = {
   penguin: [
     { f: "penguin", a: [12, 21], t: 1.2 },
@@ -2349,10 +2613,27 @@ const ROUTINES = {
     { f: "elephant", a: [12, 18], t: 1.6 },
     { f: "elephant", a: [12, 18], b: [25, 20], t: 2.2, flip: true },
     { f: "elephant", a: [25, 20], t: 0.5, flip: true },
-    { f: "elephant", a: [25, 20], t: 1.6, flip: true, fx: { f: "spray", a: [40, 9], b: [41, 7] } },
-    { f: "elephant", a: [25, 20], t: 1.6, flip: true, fx: { f: "spray", a: [29, 8], b: [30, 6], flip: true } },
+    { f: "elephant_trumpet", a: [25, 16], t: 1.6, flip: true, fx: { f: "spray", a: [40, 6], b: [41, 4] } },
+    { f: "elephant_trumpet", a: [25, 16], t: 1.6, flip: true, fx: { f: "spray", a: [33, 7], b: [31, 5], flip: true } },
     { f: "elephant", a: [25, 20], b: [12, 18], t: 2.2 },
     { f: "elephant_sleep", a: [12, 18], t: 2.6, fx: Z([8, 10], [5, 4]) }
+  ],
+  zebra: [
+    { f: "zebra", a: [24, 19], t: 1.4 },
+    { f: "zebra_graze", a: [24, 24], t: 2.2 },
+    { f: "zebra", a: [24, 19], b: [40, 15], t: 0.9, flip: true },
+    { f: "zebra", a: [40, 15], b: [41, 12], t: 0.2, flip: true, rot: [0, -14] },
+    { f: "zebra", a: [41, 12], b: [40, 15], t: 0.2, flip: true, rot: [-14, 0] },
+    { f: "zebra", a: [40, 15], b: [12, 19], t: 1.1 },
+    { f: "zebra", a: [12, 19], t: 0.3, fx: { f: "dust", a: [14, 31] } },
+    { f: "zebra", a: [12, 20], t: 0.5, rot: [0, 180], fx: { f: "dust", a: [14, 31], b: [13, 29] } },
+    { f: "zebra", a: [12, 20], t: 0.6, rot: [180, 180], fx: { f: "dust", a: [18, 30], b: [17, 28] } },
+    { f: "zebra", a: [12, 20], t: 0.5, rot: [180, 360], fx: { f: "dust", a: [10, 31], b: [9, 29] } },
+    { f: "zebra", a: [12, 19], t: 0.5, fx: { f: "dust", a: [14, 28], b: [12, 22] } },
+    { f: "zebra", a: [12, 19], b: [26, 13], t: 1.0, flip: true },
+    { f: "zebra_graze", a: [26, 18], t: 1.8, flip: true },
+    { f: "zebra_sleep", a: [30, 15], t: 2.4, fx: Z([28, 8], [25, 2]) },
+    { f: "zebra", a: [30, 15], b: [24, 19], t: 0.8 }
   ],
   tiger: [
     { f: "tiger", a: [18, 21], t: 1.2 },
@@ -2385,12 +2666,13 @@ const ROUTINES = {
 
 /* Spielzeug: was beim Spielen passiert (einmal abgespielt). sound = Ton zu Beginn des Abschnitts */
 const TOYS = {
-  penguin: { name: "Eisrutsche", sprite: "iceslide", verb: "Eisrutsche aufbauen", note: "schmilzt über Nacht", rest: [22, 4], fun: "The penguins love the slide!" },
-  seal: { name: "Ball", sprite: "ball", verb: "Ball ins Gehege werfen", rest: [40, 18], fun: "What a great ball game!" },
-  owl: { name: "Aufziehmaus", sprite: "mouse", verb: "Maus loslassen", fun: "Gotcha! What a catch!" },
-  elephant: { name: "Erdnuss", sprite: "peanut", verb: "Erdnuss werfen", fun: "Toot toot! Yummy peanut!" },
-  tiger: { name: "Wollknäuel", sprite: "yarn", verb: "Wollknäuel werfen", rest: [3, 31], fun: "Pounce! Got the yarn!" },
-  giraffe: { name: "Möhre", sprite: "carrot", verb: "Möhre werfen", fun: "Crunch! What a tasty carrot!" }
+  penguin: { en: "ice slide", fixed: true, name: "Eisrutsche", sprite: "iceslide", verb: "Eisrutsche aufbauen", note: "schmilzt über Nacht", rest: [22, 4], fun: "The penguins love the slide!" },
+  seal: { en: "ball", name: "Ball", sprite: "ball", verb: "Ball ins Gehege werfen", rest: [40, 18], fun: "What a great ball game!" },
+  owl: { en: "wind-up mouse", name: "Aufziehmaus", sprite: "mouse", verb: "Maus loslassen", fun: "Gotcha! What a catch!" },
+  elephant: { en: "peanut", name: "Erdnuss", sprite: "peanut", verb: "Erdnuss werfen", fun: "Toot toot! Yummy peanut!" },
+  zebra: { en: "scratching brush", name: "Kratzbürste", sprite: "brush", verb: "Kratzbürste aufstellen", rest: [54, 13], fixed: true, fun: "Scratch, scratch – that feels good!" },
+  tiger: { en: "ball of wool", name: "Wollknäuel", sprite: "yarn", verb: "Wollknäuel werfen", rest: [3, 31], fun: "Pounce! Got the yarn!" },
+  giraffe: { en: "carrot", name: "Möhre", sprite: "carrot", verb: "Möhre werfen", fun: "Crunch! What a tasty carrot!" }
 };
 const PLAYS = {
   penguin: [
@@ -2427,8 +2709,24 @@ const PLAYS = {
     { f: "elephant", a: [25, 20], t: 0.6, fx: { f: "peanut", a: [30, 44], b: [12, 30] } },
     { f: "elephant", a: [25, 20], b: [16, 20], t: 1.0, fx: { f: "peanut", a: [12, 30] } },
     { f: "elephant", a: [16, 20], t: 0.6 },
-    { f: "elephant", a: [16, 19], t: 1.6, sound: "trumpet", fx: [{ f: "note", a: [10, 14], b: [6, 1] }, { f: "note", id: "note2", a: [15, 16], b: [13, 2] }] },
+    { f: "elephant_trumpet", a: [16, 15], t: 1.6, sound: "trumpet", fx: [{ f: "note", a: [10, 12], b: [6, 0] }, { f: "note", id: "note2", a: [15, 14], b: [13, 1] }] },
     { f: "elephant", a: [16, 20], t: 0.5 }
+  ],
+  zebra: [
+    { f: "zebra", a: [24, 19], b: [30, 12], t: 0.9, flip: true },
+    { f: "zebra", a: [33, 12], t: 0.3 },
+    { f: "zebra", a: [33, 12], b: [35, 12], t: 0.18, rot: [0, 4] },
+    { f: "zebra", a: [35, 12], b: [33, 12], t: 0.18, rot: [4, 0] },
+    { f: "zebra", a: [33, 12], b: [35, 12], t: 0.18, rot: [0, 4] },
+    { f: "zebra", a: [35, 12], b: [33, 12], t: 0.18, rot: [4, 0] },
+    { f: "zebra", a: [33, 12], b: [35, 12], t: 0.18, rot: [0, 4] },
+    { f: "zebra", a: [35, 12], b: [33, 12], t: 0.18, rot: [4, 0] },
+    { f: "zebra", a: [33, 12], b: [35, 12], t: 0.18, rot: [0, 4] },
+    { f: "zebra", a: [35, 12], b: [33, 12], t: 0.18, rot: [4, 0] },
+    { f: "zebra", a: [33, 12], t: 0.5, fx: { f: "heart", a: [30, 9], b: [29, 2] } },
+    { f: "zebra", a: [33, 12], b: [31, 9], t: 0.2, rot: [0, -14] },
+    { f: "zebra", a: [31, 9], b: [33, 12], t: 0.2, rot: [-14, 0] },
+    { f: "zebra", a: [33, 12], b: [24, 19], t: 0.8 }
   ],
   tiger: [
     { f: "tiger", a: [18, 21], t: 0.5, fx: { f: "yarn", a: [34, 44], b: [44, 29] } },
@@ -2520,8 +2818,10 @@ const Routine = {
 
 /* XP-Haushalt: Futter verdient man vor allem mit neuen Wörtern im Shop.
    Übungen am Gehege bringen nur wenig XP – ihr Lohn ist das saubere Gehege, das Spielzeug, das Herz. */
-const ENC_XP = { correct: 1, retry: 1, lesson: 0, combo: 0 };
-const ZOO = { COMFORT_TASKS: 3, HOLIDAY_DAYS: 7, TOY_TASKS: 3, HAPPY_BONUS: 5, POWER_BONUS: 10, START_ANIMALS: 2, CLEAN_TASKS: 5, EVENT_TASKS: 6, EVENT_BONUS: 5, EVENT_CHANCE: 0.5, EVENT_MIN_WORDS: 6 };
+const ENC_XP = { correct: 5, retry: 2, lesson: 0, combo: 0 };
+/* Päckchen im Shop: 10 XP pro Antwort wie immer, dazu ein großer Päckchen-Bonus */
+const SHOP_XP = { lesson: 50 };
+const ZOO = { COMFORT_TASKS: 3, HOLIDAY_DAYS: 7, TOY_TASKS: 3, HAPPY_BONUS: 5, POWER_BONUS: 10, START_ANIMALS: 2, CLEAN_TASKS: 4, EVENT_TASKS: 6, EVENT_BONUS: 5, EVENT_CHANCE: 0.5, EVENT_MIN_WORDS: 6 };
 
 /* Pokale: jeder nur einmal. test(z) bekommt die App */
 const anyDay = (z, lvl) => Object.values(z.A.days || {}).some(v => v >= lvl);
@@ -2545,7 +2845,10 @@ const TROPHIES = [
   { id: "words_100", shape: "star", metal: "gold", name: "100 Wörter", desc: "Du kannst 100 Wörter.", test: () => Plan.learnedWords().length >= 100 },
   { id: "set_done", shape: "cup", metal: "gold", name: "Set geschafft", desc: "Lerne alle Wörter eines Sets.", test: () => Data.sets.some(s => { const p = Plan.setProgress(s.id); return p.learned === p.total; }) },
   { id: "events_10", shape: "medal", metal: "gold", name: "Zoo-Handwerker", desc: "Löse 10 Ereignisse im Zoo.", test: z => z.stat("events") >= 10 },
-  { id: "full_zoo", shape: "heart", metal: "bronze", name: "Voller Zoo", desc: "Alle Tiere wohnen in deinem Zoo.", test: z => z.A.unlocked.length >= ANIMALS.length }
+  { id: "full_zoo", shape: "heart", metal: "bronze", name: "Voller Zoo", desc: "Alle Tiere wohnen in deinem Zoo.", test: z => z.A.unlocked.length >= ANIMALS.length },
+  { id: "first_friend", shape: "medal", metal: "ruby", name: "Erster Freund", desc: "Schenk einem Tier einen Freund.", test: z => ANIMALS.some(a => z.hasFriend(a.id)) },
+  { id: "joker", shape: "star", metal: "silver", name: "Mios Hilfe", desc: "Bekomme deinen ersten Mio-Joker.", test: z => (z.A.jokerAwarded || 0) >= 1 },
+  { id: "all_friends", shape: "heart", metal: "gold", name: "Jeder hat einen Freund", desc: "In allen Gehegen wohnen zwei Tiere.", test: z => ANIMALS.every(a => z.A.unlocked.includes(a.id) && z.hasFriend(a.id)) }
 ];
 
 const App = {
@@ -2568,6 +2871,7 @@ const App = {
     if (!Data.set(A.setId)) A.setId = Data.sets[0].id;
     A.toys = A.toys || {}; A.days = A.days || {};
     A.stats = A.stats || {}; A.trophies = A.trophies || {}; A.trophyQueue = A.trophyQueue || []; A.xpDays = A.xpDays || {};
+    A.jokers = A.jokers || 0; A.jokerAwarded = A.jokerAwarded || 0; A.jokerNew = A.jokerNew || 0;
     this.ensureAnimals(true);
     this.checkHoliday();
     this.rollEvent();
@@ -2582,7 +2886,7 @@ const App = {
     const target = Math.min(ANIMALS.length, ZOO.START_ANIMALS + this.donePacks());
     const isStart = A.unlocked.length === 0;
     while (A.unlocked.length < target) {
-      const a = ANIMALS[A.unlocked.length];
+      const a = ANIMALS.find(x => !A.unlocked.includes(x.id));
       A.unlocked.push(a.id);
       A.animals[a.id] = { fed: t - 1, clean: t };
       if (!isStart || A.unlocked.length > ZOO.START_ANIMALS) A.welcome.push(a.id);
@@ -2592,8 +2896,63 @@ const App = {
   animal(id) { return ANIMALS.find(a => a.id === id); },
   hunger(id) { return Math.min(2, U.today() - this.A.animals[id].fed); },
   dirt(id) { return Math.min(2, U.today() - this.A.animals[id].clean); },
+  /* Deutsch mit englischer Zeile darunter (1:1) */
+  bi(de, en) { return `<span class="bi"><span>${de}</span><em class="en">${en}</em></span>`; },
+  bbtn(attr, de, en, cls) { return `<button class="btn ${cls || "primary"} big bi-btn" ${attr}><span>${de}</span><em class="en">${en}</em></button>`; },
+  enName(a, two) { return "The " + (two ? a.enPl : a.en); },
+  hasFriend(id) { return !!(this.A.animals[id] && this.A.animals[id].friend); },
+  portions(id) { return this.hasFriend(id) ? 2 : 1; },
+  /* heute schon gegebene Portionen (bei zwei Tieren braucht es zwei) */
+  fedToday(id) { const x = this.A.animals[id]; if (x.fed === U.today()) return this.portions(id); return x.part && x.part.day === U.today() ? x.part.n : 0; },
+  friendRoutine(id) {
+    const F = FRIENDS[id];
+    if (F.own === "owl2") return OWL2;
+    const mv = xy => xy && [xy[0] + F.dx, xy[1] + F.dy];
+    return ROUTINES[id].map(sg => Object.assign({}, sg, { a: mv(sg.a), b: mv(sg.b),
+      fx: sg.fx && [].concat(sg.fx).map(x => Object.assign({}, x, { a: mv(x.a), b: mv(x.b) })) }));
+  },
   stat(k) { return (this.A.stats && this.A.stats[k]) || 0; },
   bump(k) { this.A.stats[k] = this.stat(k) + 1; Store.save(); },
+  /* Mio-Joker: zählt nur die insgesamt verdienten XP im Hintergrund */
+  checkJokers() {
+    const A = this.A, earned = Math.floor((Store.data.xp || 0) / JOKER_XP);
+    if (earned > A.jokerAwarded) { const n = earned - A.jokerAwarded; A.jokers += n; A.jokerNew += n; A.jokerAwarded = earned; Store.save(); }
+  },
+  nextJoker() { return JOKER_XP - ((Store.data.xp || 0) % JOKER_XP); },
+  jokerPopup() {
+    this.A.jokerNew = 0; Store.save();
+    Sound.play("finish"); Confetti.burst(120, "stars");
+    this.dialog(`<div class="joker-pic"><div class="joker-mio">${Mio.svg("cheer")}</div><span data-broom></span></div>
+      <p class="dlg-title">🧹 Mio hilft!</p><p class="dlg-en">Mio helps!</p>
+      <p>Du hast insgesamt ${this.A.jokerAwarded * JOKER_XP} XP gesammelt. Dafür bekommst du einen <b>Joker</b>: Mio putzt ein Gehege für dich.</p>
+      <p class="small"><em class="en-inline">You get a joker: Mio cleans one enclosure for you.</em></p>
+      <p class="small">Du hast jetzt ${this.A.jokers} Joker. Tipp auf ein schmutziges Gehege und dann auf „Mio hilft“.</p>
+      <button class="btn primary big" data-close>Super!</button>`,
+      d => { d.dataset.rerender = "1"; const b = Pix.icon("broom"); b.className = "joker-broom"; d.querySelector("[data-broom]").appendChild(b); });
+  },
+  useJoker(a, d) {
+    const A = this.A;
+    if (!(A.jokers > 0) || this.dirt(a.id) === 0 || this.sad(a.id)) return;
+    // sofort speichern, die Animation ist nur Anzeige
+    A.jokers--; A.animals[a.id].clean = U.today(); Store.save(); this.bump("jokersUsed"); this.checkZoo();
+    d.dataset.rerender = "1";
+    const sc = d.querySelector("[data-bigscene]"), row = d.querySelector("[data-cleanrow]");
+    row.innerHTML = `<div class="row-txt">🧹 ${this.bi("Mio putzt …", "Mio is cleaning …")}</div>`;
+    const dirt = sc.querySelector("canvas.dirt"); if (dirt) dirt.classList.add("sweep");
+    const run = document.createElement("div"); run.className = "mio-run";
+    run.innerHTML = Mio.svg("cheer");
+    const br = Pix.icon("broom"); br.className = "run-broom"; run.appendChild(br);
+    sc.appendChild(run);
+    Sound.play("sweep");
+    run.addEventListener("animationend", e => {
+      if (e.target !== run || !sc.isConnected) return;
+      run.remove();
+      this.scene(sc, a, true); this.hearts(sc, 5);
+      Sound.play("combo"); Confetti.burst(60, "stars");
+      row.innerHTML = `<div class="row-txt">🧹 ${this.bi("Sauber ✨ – danke, Mio!", "Clean – thank you, Mio!")}</div>`;
+      this.toyRow(a, d);
+    });
+  },
   checkTrophies() {
     const A = this.A, t = U.today();
     let changed = false;
@@ -2684,7 +3043,9 @@ const App = {
   },
   makeEvent() {
     const A = this.A;
-    A.event = { type: U.pick(Object.keys(EVENTS)), animal: U.pick(A.unlocked), day: U.today() };
+    const animal = U.pick(A.unlocked), keys = Object.keys(EVENTS);
+    const own = keys.filter(k => EVENTS[k].only === animal), gen = keys.filter(k => !EVENTS[k].only);
+    A.event = { type: own.length && Math.random() < 0.6 ? U.pick(own) : U.pick(gen), animal, day: U.today() };
     Store.save();
   },
   foodNeeded() { return new Set(this.A.unlocked.map(id => this.animal(id).food)); },
@@ -2693,13 +3054,13 @@ const App = {
     const A = this.A;
     const sadId = A.unlocked.find(id => this.sad(id));
     if (sadId) { const a = this.animal(sadId); return { mood: "encourage", en: "Oh no, someone is sad!", de: `${a.der} ist traurig und weint. Tipp auf das Gehege und tröste ${a.sie}.` }; }
-    if (A.event) { const a = this.animal(A.event.animal); return { mood: "encourage", en: "Oh no!", de: `${EVENTS[A.event.type].title} (${a.name}-Gehege) Hilf mit!` }; }
+    if (A.event) { const a = this.animal(A.event.animal); return { mood: "encourage", en: "Oh no!", de: `${EVENTS[A.event.type].title} (${a.geh}-Gehege) Hilf mit!` }; }
     const hungry = A.unlocked.filter(id => this.hunger(id) > 0);
     const canFeed = hungry.find(id => A.inv[this.animal(id).food] > 0);
     if (canFeed) { const a = this.animal(canFeed); return { mood: "idle", en: "Feeding time!", de: `${a.der} hat Hunger. Du hast ${FOODS[a.food].name} – tipp auf das Gehege!` }; }
     if (hungry.length) { const a = this.animal(hungry[0]); return { mood: "idle", en: "Let's go shopping!", de: `${a.der} hat Hunger. Löse im Shop Aufgaben und kauf ${FOODS[a.food].name}.` }; }
     const dirty = A.unlocked.find(id => this.dirt(id) > 0);
-    if (dirty) return { mood: "idle", en: "Time to clean up!", de: `Das ${this.animal(dirty).name}-Gehege ist schmutzig. Beim Putzen wiederholst du Wörter.` };
+    if (dirty) return { mood: "idle", en: "Time to clean up!", de: `Das ${this.animal(dirty).geh}-Gehege ist schmutzig. Beim Putzen wiederholst du Wörter.` };
     const noToy = A.unlocked.filter(id => !this.played(id));
     if (noToy.length) { const a = this.animal(noToy[0]);
       return { mood: "cheer", en: "Happy zoo! Go for power?", de: `Alle Tiere sind glücklich ❤️. Erspiel am Gehege jedem Tier sein Spielzeug für den Power-Zoo 💖 – zum Beispiel ${TOYS[a.id].name} für ${a.fuer}.` }; }
@@ -2727,6 +3088,7 @@ const App = {
   },
 
   render(keep) {
+    this.checkJokers();
     this.checkTrophies();
     const app = document.getElementById("app");
     const y = window.scrollY;
@@ -2745,7 +3107,9 @@ const App = {
         <p>Mio hat auf die Tiere aufgepasst, während du weg warst. Jetzt haben sie ein bisschen Hunger.</p>
         <button class="btn primary big" data-close>Los geht's!</button>`, d => { d.dataset.rerender = "1"; });
     } else if (this.view !== "settings" && this.A.welcome.length) this.welcomeAnimal();
+    else if (this.view !== "settings" && (this.A.friendWelcome || []).length) this.friendPopup();
     else if (this.pendingZoo) this.zooParty();
+    else if (this.view !== "settings" && this.A.jokerNew > 0) this.jokerPopup();
     else if (this.view !== "settings" && this.A.trophyQueue.length) this.trophyPopup();
   },
 
@@ -2764,7 +3128,8 @@ const App = {
     return `<div class="zoo-status">
       <div class="zs-row"><span class="zs-name">❤️ Glücklicher Zoo</span><b>${n1}/${ids.length}</b><span class="zs-streak" title="Serie">🔥 ${this.zooStreak(1)}</span></div>
       <div class="zs-row"><span class="zs-name">💖 Power-Zoo</span><b>${n2}/${ids.length}</b><span class="zs-streak" title="Power-Serie">⚡ ${this.zooStreak(2)}</span></div>
-      <div class="zs-help">❤️ = gefüttert und sauber · 💖 = dazu Spielzeug erspielt</div></div>`;
+      <div class="zs-row"><span class="zs-name">🦊 Mio-Joker</span><b>${this.A.jokers}</b><span class="zs-next">nächster in ${this.nextJoker()} XP</span></div>
+      <div class="zs-help">❤️ = gefüttert und sauber · 💖 = dazu Spielzeug erspielt · 🦊 = Mio putzt ein Gehege</div></div>`;
   },
   encCard(a) {
     const hu = this.hunger(a.id), di = this.dirt(a.id), ev = this.A.event && this.A.event.animal === a.id;
@@ -2781,18 +3146,22 @@ const App = {
   scene(el, a, big, opts) {
     opts = opts || {};
     el.innerHTML = "";
-    const bg = document.createElement("canvas"); bg.className = "bg"; Scene.draw(bg, a); el.appendChild(bg);
-    const dirt = document.createElement("canvas"); dirt.className = "bg"; Scene.dirt(dirt, a, this.dirt(a.id)); el.appendChild(dirt);
+    const bg = document.createElement("canvas"); bg.className = "bg"; Scene.draw(bg, a, { perch2: a.id === "owl" && this.hasFriend("owl") }); el.appendChild(bg);
+    const evNow = this.A.event && this.A.event.animal === a.id ? EVENTS[this.A.event.type] : null;
+    if (evNow && evNow.overlay) { const ov = document.createElement("canvas"); ov.className = "bg"; Scene.eventOverlay(ov, evNow.overlay, a); el.appendChild(ov); }
+    const F = FRIENDS[a.id], friend = this.hasFriend(a.id);
+    const mainPos = evNow && evNow.animalPos ? evNow.animalPos : a.pos;
+    const dirt = document.createElement("canvas"); dirt.className = "bg dirt"; Scene.dirt(dirt, a, this.dirt(a.id)); el.appendChild(dirt);
     const hu = this.hunger(a.id);
     const mood = hu >= 2 ? "hungry" : hu === 1 ? "peckish" : "happy";
     const toy = TOYS[a.id];
     // Spielzeug, das heute im Gehege liegt (Ball, Wollknäuel, Eisrutsche)
     // die Eisrutsche steht fest im Gehege; Ball und Wollknäuel liegen in der Routine mit drin
-    if (a.id === "penguin" && (this.played(a.id) || opts.play))
+    if (toy.fixed && (this.played(a.id) || opts.play))
       el.appendChild(Pix.el(toy.sprite, "toy", toy.rest[0], toy.rest[1], 64, 44));
     if (this.sad(a.id) && !opts.play) {
       // traurig: sitzt da und weint
-      const spots = [a.pos].concat(a.twin ? [a.twin] : []);
+      const spots = [mainPos].concat(friend ? [F.pos] : []);
       spots.forEach((p, i) => {
         el.appendChild(Pix.el(a.id, "animal sad", p[0], p[1], 64, 44, i === 1));
         const ex = i === 1 ? Pix.size(a.id).w - 1 - a.eye[0] : a.eye[0];
@@ -2804,16 +3173,17 @@ const App = {
     } else if (opts.play) {
       // einmaliges Spiel mit dem Spielzeug
       Routine.mount(el, "play_" + a.id, PLAYS[a.id], { once: true, onEnd: opts.onEnd });
-      if (a.twin) el.appendChild(Pix.el(a.id, "animal twin happy", a.twin[0], a.twin[1], 64, 44, true));
-    } else if (hu === 0 && ROUTINES[a.id]) {
+      if (friend) Routine.mount(el, a.id + "_friend", this.friendRoutine(a.id), F.delay ? { delay: F.delay } : {});
+    } else if (hu === 0 && ROUTINES[a.id] && !evNow) {
       // satt: das Tier spielt (rutschen, tauchen, fliegen …) – mit Spielzeug auch immer wieder damit
       const withToy = this.played(a.id);
       const key = withToy ? a.id + "_toy" : a.id, segs = withToy ? this.toyRoutine(a.id) : ROUTINES[a.id];
       Routine.mount(el, key, segs);
-      if (a.twin) Routine.mount(el, key, segs, { delay: 0.5 });
+      // das zweite Tier macht seine eigene Runde (das Spielzeug gehört beiden)
+      if (friend) Routine.mount(el, a.id + "_friend", this.friendRoutine(a.id), F.delay ? { delay: F.delay } : {});
     } else {
-      el.appendChild(Pix.el(a.id, "animal " + mood, a.pos[0], a.pos[1], 64, 44));
-      if (a.twin) el.appendChild(Pix.el(a.id, "animal twin " + mood, a.twin[0], a.twin[1], 64, 44, true));
+      el.appendChild(Pix.el(a.id, "animal " + mood, mainPos[0], mainPos[1], 64, 44));
+      if (friend) el.appendChild(Pix.el(a.id, "animal twin " + mood, F.pos[0], F.pos[1], 64, 44, true));
     }
     if (hu > 0 && !this.sad(a.id)) {
       const b = document.createElement("div"); b.className = "need";
@@ -2821,7 +3191,7 @@ const App = {
       b.appendChild(Pix.icon(a.food)); el.appendChild(b);
     }
     const ev = this.A.event;
-    if (ev && ev.animal === a.id) {
+    if (ev && ev.animal === a.id && EVENTS[ev.type].sprite) {
       const E = EVENTS[ev.type];
       el.appendChild(Pix.el(E.sprite, "event", E.pos[0], E.pos[1], 64, 44));
     }
@@ -2831,7 +3201,7 @@ const App = {
   toyRoutine(id) {
     const toy = TOYS[id], base = ROUTINES[id];
     const play = PLAYS[id].map(x => Object.assign({}, x));
-    const lying = toy.rest && id !== "penguin" ? { f: toy.sprite, id: "toyrest", a: toy.rest } : null;
+    const lying = toy.rest && !toy.fixed ? { f: toy.sprite, id: "toyrest", a: toy.rest } : null;
     if (lying) {
       // beim Nochmal-Spielen startet das Spielzeug dort, wo es liegt
       const f0 = play[0], fx = [].concat(f0.fx || []).map(x => x.f === toy.sprite ? Object.assign({}, x, { a: toy.rest }) : x);
@@ -2882,7 +3252,7 @@ const App = {
       <div class="shop-sign"><canvas class="stall"></canvas><div class="shop-title">Mios Laden</div></div>
       <section class="card">
         <div class="card-title">⭐ XP verdienen</div>
-        <p class="small">Neue Wörter bringen die meisten XP: <b>10 XP</b> pro richtiger Antwort. Am Gehege gibt es nur 1 XP pro Antwort.</p>
+        <p class="small">Neue Wörter bringen die meisten XP: <b>10 XP</b> pro richtiger Antwort und <b>50 XP</b> Päckchen-Bonus. Am Gehege gibt es 5 XP pro Antwort.</p>
         <div class="set-label">Welches Set übst du gerade?</div>
         <div class="set-chips">${Data.sets.map(s => `<button class="set-chip ${s.id === A.setId ? "on" : ""}" data-pickset="${U.esc(s.id)}">${U.esc(s.title)}</button>`).join("")}</div>
         <div class="progress"><div style="width:${Math.round(100 * p.learned / p.total)}%"></div></div>
@@ -2893,17 +3263,29 @@ const App = {
         <div class="card-title title-row">🛒 Futter kaufen <span class="pill gold">⭐ ${A.wallet} XP</span></div>
         ${Object.entries(FOODS).map(([k, f]) => {
           const usable = need.has(k);
-          return `<div class="food-row ${usable ? "" : "dim"}"><span class="food-ico" data-icon="${k}"></span>
-            <div class="food-txt"><b>${f.name}</b><span>${usable ? "Du hast " + A.inv[k] : "für ein Tier, das noch kommt"}</span></div>
-            <button class="buy" data-buy="${k}" ${usable && A.wallet >= f.price ? "" : "disabled"}>⭐ ${f.price}</button></div>`;
+          if (!usable) return this.lockedRow();
+          return `<div class="food-row"><span class="food-ico" data-icon="${k}"></span>
+            <div class="food-txt"><b>${f.name}</b><span>Du hast ${A.inv[k]}</span></div>
+            <button class="buy" data-buy="${k}" ${A.wallet >= f.price ? "" : "disabled"}>⭐ ${f.price}</button></div>`;
         }).join("")}
-        ${A.wallet < 40 ? `<p class="small">Zu wenig XP? Löse oben ein paar Aufgaben!</p>` : ""}
+        ${A.wallet < FOODS.fish.price ? `<p class="small">Zu wenig XP? Löse oben ein paar Aufgaben!</p>` : ""}
+      </section>
+      <section class="card">
+        <div class="card-title title-row">🐾 Neue Freunde <span class="pill gold">⭐ ${A.wallet} XP</span></div>
+        <p class="small">Schenk einem Tier einen Freund. Dann brauchst du jeden Tag 2 Futter für das Gehege.</p>
+        ${ANIMALS.map(a => {
+          const here = A.unlocked.includes(a.id), has = here && this.hasFriend(a.id);
+          if (!here) return this.lockedRow();   // Tiere, die noch nicht im Zoo wohnen, bleiben geheim
+          return `<div class="food-row"><span class="food-ico" data-icon="${a.id}"></span>
+            <div class="food-txt"><b>${FRIENDS[a.id].name}</b><span>${has ? "✓ wohnt schon im Zoo" : "zieht sofort ein"}</span></div>
+            ${has ? `<span class="have">💕</span>` : `<button class="buy" data-buyfriend="${a.id}" ${A.wallet >= FRIEND_PRICE ? "" : "disabled"}>⭐ ${FRIEND_PRICE}</button>`}</div>`;
+        }).join("")}
       </section>`;
   },
 
   settingsView() {
     const s = Store.data.settings;
-    return `<header class="top"><button class="icon" data-go="zoo" aria-label="Zurück">←</button><div class="brand">Einstellungen</div></header>
+    return `<header class="top"><button class="icon" data-go="zoo" aria-label="Zurück">←</button><div class="brand">Einstellungen <span class="ver">v${APP_VERSION}</span></div></header>
       <section class="card">
         <div class="toggle-row">Töne <button class="switch ${s.sound ? "on" : ""}" data-toggle="sound" aria-label="Töne"></button></div>
         <div class="toggle-row">Vorlesen <button class="switch ${s.speech ? "on" : ""}" data-toggle="speech" aria-label="Vorlesen"></button></div>
@@ -2913,7 +3295,6 @@ const App = {
         <p class="small">Insgesamt verdient: <b>${Store.data.xp} XP</b></p>
         <p class="small">Dein Zoo wird nur auf diesem Handy gespeichert. Es gibt kein Login und es werden keine Daten verschickt.</p>
         <button class="btn" data-reset>Zoo und Fortschritt löschen</button>
-        <p class="small">Version ${APP_VERSION}</p>
       </section>
       ${PWA.backupSection()}
       ${TEST_MODE ? `<section class="card test-tools">
@@ -2921,6 +3302,7 @@ const App = {
         <button class="btn" data-skipday>⏩ Einen Tag vorspulen</button>
         <button class="btn" data-mkevent>⚡ Ereignis auslösen</button>
         <button class="btn" data-addxp>⭐ 200 XP schenken</button>
+        <button class="btn" data-addjoker>🦊 Mio-Joker schenken</button>
       </section>` : ""}`;
   },
 
@@ -2930,12 +3312,13 @@ const App = {
     app.querySelectorAll("[data-enc]").forEach(b => b.onclick = () => { Sound.play("tap"); this.openEnc(b.dataset.enc); });
     app.querySelectorAll("[data-pickset]").forEach(b => b.onclick = () => { this.A.setId = b.dataset.pickset; Store.save(); this.render(true); });
     app.querySelectorAll("[data-learn]").forEach(b => b.onclick = () => Engine.startNew(this.A.setId, +b.dataset.learn, {
-      finishTitle: "Great work!", finishExtra: () => this.walletNote(), onClose: res => {
+      xp: SHOP_XP, finishTitle: "Great work!", finishExtra: () => this.walletNote(), onClose: res => {
         if (res.completed && res.mistakes === 0) this.bump("perfect");
         this.ensureAnimals(); this.view = "shop"; this.render(); } }));
     const pr = app.querySelector("[data-practice]");
     if (pr) pr.onclick = () => this.practice(8, "Great work!", () => {}, true);
     app.querySelectorAll("[data-buy]").forEach(b => b.onclick = () => this.buy(b.dataset.buy, b));
+    app.querySelectorAll("[data-buyfriend]").forEach(b => b.onclick = () => this.buyFriend(b.dataset.buyfriend));
     app.querySelectorAll("[data-toggle]").forEach(b => b.onclick = () => { const k = b.dataset.toggle; Store.data.settings[k] = !Store.data.settings[k]; Store.save(); this.render(true); });
     const ts = app.querySelector("[data-testsay]"); if (ts) ts.onclick = () => Speech.say("Hello! Welcome to the zoo!");
     const rs = app.querySelector("[data-reset]");
@@ -2950,6 +3333,8 @@ const App = {
     if (sk) sk.onclick = () => { this.skipDay(); sk.textContent = "✓ Ein Tag vorgespult"; };
     const me = app.querySelector("[data-mkevent]");
     if (me) me.onclick = () => { this.makeEvent(); me.textContent = "✓ Ereignis ist da – schau in den Zoo"; };
+    const aj = app.querySelector("[data-addjoker]");
+    if (aj) aj.onclick = () => { this.A.jokers++; Store.save(); aj.textContent = "✓ Joker geschenkt (" + this.A.jokers + ")"; };
     const ax = app.querySelector("[data-addxp]");
     if (ax) ax.onclick = () => { this.A.wallet += 200; Store.save(); ax.textContent = "✓ 200 XP geschenkt"; };
   },
@@ -2992,25 +3377,36 @@ const App = {
     const a = this.animal(id), A = this.A;
     const hu = this.hunger(id), di = this.dirt(id), ev = A.event && A.event.animal === id ? A.event : null;
     const food = FOODS[a.food];
-    const hungerTxt = ["ist satt und glücklich 😊", "hat ein bisschen Hunger", "hat Hunger"][hu];
-    const dirtTxt = ["Sauber ✨", "Ein bisschen schmutzig", "Schmutzig"][di];
+    const two = this.hasFriend(id), given = this.fedToday(id);
+    const who = two ? "Beide " + FRIENDS[id].plural : a.der;
+    const whoEn = two ? "Both " + a.enPl : this.enName(a);
+    const hungerDe = hu === 0 ? (two ? "sind satt und glücklich 😊" : "ist satt und glücklich 😊")
+      : (two ? `${hu === 1 ? "haben ein bisschen" : "haben"} Hunger – ${given} von 2 Portionen` : ["", "hat ein bisschen Hunger", "hat Hunger"][hu]);
+    const hungerEn = hu === 0 ? (two ? "are full and happy." : "is full and happy.")
+      : (two ? `are ${hu === 1 ? "a little " : ""}hungry – ${given} of 2 portions.` : ["", "is a little hungry.", "is hungry."][hu]);
+    const dirtDe = ["Sauber ✨", "Ein bisschen schmutzig", "Schmutzig"][di], dirtEn = ["Clean", "A little dirty", "Dirty"][di];
     const sad = this.sad(id);
     const why = [hu >= 2 ? "Gestern gab es kein Futter." : "", di >= 2 ? "Gestern hat niemand sauber gemacht." : ""].filter(Boolean).join(" ");
+    const whyEn = [hu >= 2 ? "There was no food yesterday." : "", di >= 2 ? "Nobody cleaned yesterday." : ""].filter(Boolean).join(" ");
+    const E = ev ? EVENTS[ev.type] : null;
     const d = this.dialog(`
       <div class="enc-big"><div class="scene big" data-bigscene></div></div>
-      <p class="dlg-title">${a.name}-Gehege</p>
-      ${sad ? `<div class="row sad-row"><div><b>😢 ${a.der} ist traurig.</b> ${why}</div>
-        <button class="btn primary big" data-comfort>💛 Trösten · ${ZOO.COMFORT_TASKS} Aufgaben</button></div>` : ""}
-      ${ev ? `<div class="row ev-row"><div><b>⚠️ ${U.esc(EVENTS[ev.type].title)}</b></div>
-        ${sad ? `<p class="small">Erst trösten.</p>` : `<button class="btn primary big" data-event>🛠️ ${EVENTS[ev.type].action} · ${ZOO.EVENT_TASKS} Aufgaben</button>`}</div>` : ""}
-      <div class="row"><div class="row-txt"><span data-icon="${a.food}"></span> ${a.der} ${hungerTxt}</div>
-        ${hu === 0 ? "" : sad ? `<p class="small">Erst trösten, dann füttern.</p>` : ev ? `<p class="small">Zuerst: ${EVENTS[ev.type].action}. Danach kannst du füttern.</p>`
-          : A.inv[a.food] > 0 ? `<button class="btn primary big" data-feed>Füttern (${food.name}: ${A.inv[a.food]})</button>`
-          : `<button class="btn big" data-toshop>Kein ${food.name} da – zum Shop</button>`}</div>
-      <div class="row"><div class="row-txt">🧹 ${dirtTxt}</div>
-        ${di === 0 ? "" : sad ? `<p class="small">Erst trösten, dann putzen.</p>` : `<button class="btn primary big" data-clean>Putzen · ${ZOO.CLEAN_TASKS} Aufgaben</button>`}</div>
+      <p class="dlg-title">${a.geh}-Gehege</p><p class="dlg-en">${a.en[0].toUpperCase() + a.en.slice(1)} enclosure</p>
+      ${sad ? `<div class="row sad-row"><div>${this.bi(`<b>😢 ${a.der} ist traurig.</b> ${why}`, `${this.enName(a)} is sad. ${whyEn}`)}</div>
+        ${this.bbtn("data-comfort", `💛 Trösten · ${ZOO.COMFORT_TASKS} Aufgaben`, `Comfort · ${ZOO.COMFORT_TASKS} tasks`)}</div>` : ""}
+      ${ev ? `<div class="row ev-row"><div>${this.bi(`<b>⚠️ ${U.esc(E.title)}</b>`, E.enTitle)}</div>
+        ${sad ? `<p class="small">${this.bi("Erst trösten.", "Comfort first.")}</p>` : this.bbtn("data-event", `🛠️ ${E.action} · ${ZOO.EVENT_TASKS} Aufgaben`, `${E.enAction} · ${ZOO.EVENT_TASKS} tasks`)}</div>` : ""}
+      <div class="row"><div class="row-txt"><span data-icon="${a.food}"></span> ${this.bi(`${who} ${hungerDe}`, `${whoEn} ${hungerEn}`)}</div>
+        ${hu === 0 ? "" : sad ? `<p class="small">${this.bi("Erst trösten, dann füttern.", "Comfort first, then feed.")}</p>`
+          : ev ? `<p class="small">${this.bi(`Zuerst: ${E.action}. Danach kannst du füttern.`, `First: ${E.enAction.toLowerCase()}. Then you can feed.`)}</p>`
+          : A.inv[a.food] > 0 ? this.bbtn("data-feed", `Füttern (${food.name}: ${A.inv[a.food]})${two ? ` · Portion ${given + 1} von 2` : ""}`, `Feed (${food.en}: ${A.inv[a.food]})${two ? ` · portion ${given + 1} of 2` : ""}`)
+          : this.bbtn("data-toshop", `Kein ${food.name} da – zum Shop`, `No ${food.en} – go to the shop`, "")}</div>
+      <div class="row" data-cleanrow><div class="row-txt">🧹 ${this.bi(dirtDe, dirtEn)}</div>
+        ${di === 0 ? "" : sad ? `<p class="small">${this.bi("Erst trösten, dann putzen.", "Comfort first, then clean.")}</p>`
+          : this.bbtn("data-clean", `Putzen · ${ZOO.CLEAN_TASKS} Aufgaben`, `Clean · ${ZOO.CLEAN_TASKS} tasks`)
+            + (A.jokers > 0 ? this.bbtn("data-joker", `🦊 Mio hilft · Joker (${A.jokers})`, `Mio helps · joker (${A.jokers})`, "joker") : "")}</div>
       <div class="row" data-toyrow></div>
-      <button class="btn ghost" data-close>Schließen</button>`);
+      <button class="btn ghost bi-btn" data-close><span>Schließen</span><em class="en">Close</em></button>`);
     this.toyRow(a, d);
     const sc = d.querySelector("[data-bigscene]");
     this.scene(sc, a, true);
@@ -3019,6 +3415,8 @@ const App = {
     if (fb) fb.onclick = () => this.feed(a, d);
     const ts = d.querySelector(".row:not([data-toyrow]) [data-toshop]");
     if (ts) ts.onclick = () => { d.hidden = true; this.view = "shop"; this.render(); };
+    const jb = d.querySelector("[data-joker]");
+    if (jb) jb.onclick = () => this.useJoker(a, d);
     const cb = d.querySelector("[data-clean]");
     if (cb) cb.onclick = () => { d.hidden = true; this.afterMsg = () => this.celebrate(a, "Sparkling clean!", "Das Gehege glänzt wieder."); this.practice(ZOO.CLEAN_TASKS, "Sparkling clean!", () => { A.animals[id].clean = U.today(); Store.save(); this.checkZoo(); }); };
     const cf = d.querySelector("[data-comfort]");
@@ -3032,8 +3430,21 @@ const App = {
   },
 
   feed(a, d) {
-    const A = this.A;
-    A.inv[a.food]--; A.animals[a.id].fed = U.today(); Store.save(); this.bump("fed");
+    const A = this.A, x = A.animals[a.id], t = U.today();
+    if (!(A.inv[a.food] > 0)) return;
+    A.inv[a.food]--;
+    // bei zwei Tieren: erst nach der zweiten Portion sind beide satt
+    const n = (x.part && x.part.day === t ? x.part.n : 0) + 1;
+    x.part = { day: t, n };
+    if (n < this.portions(a.id)) {
+      Store.save(); this.bump("fed");
+      Sound.play("coin");
+      this.openEnc(a.id);
+      const d2 = document.querySelector(".dialog"); d2.dataset.rerender = "1";
+      this.hearts(d2.querySelector("[data-bigscene]"), 3);
+      return;
+    }
+    x.fed = t; Store.save(); this.bump("fed");
     Sound.play("finish"); Confetti.burst(60);
     const sc = d.querySelector("[data-bigscene]");
     this.scene(sc, a, true);
@@ -3042,8 +3453,10 @@ const App = {
     d.dataset.rerender = "1";
     this.toyRow(a, d);
     const fb = d.querySelector("[data-feed]");
-    fb.outerHTML = `<div class="yum"><div class="yum-mio">${Mio.svg("cheer")}</div><div class="bubble">Yummy! ${a.der} ist jetzt satt.</div></div>`;
-    d.querySelector(".row-txt").innerHTML = `<span class="px-wrap"></span> ${a.der} ist satt und glücklich 😊`;
+    fb.outerHTML = `<div class="yum"><div class="yum-mio">${Mio.svg("cheer")}</div><div class="bubble">Yummy! ${this.hasFriend(a.id) ? "Jetzt sind beide satt." : a.der + " ist jetzt satt."}</div></div>`;
+    d.querySelector(".row-txt").innerHTML = `<span class="px-wrap"></span> ${this.hasFriend(a.id)
+      ? this.bi("Beide " + FRIENDS[a.id].plural + " sind satt und glücklich 😊", "Both " + a.enPl + " are full and happy.")
+      : this.bi(a.der + " ist satt und glücklich 😊", this.enName(a) + " is full and happy.")}`;
     d.querySelector(".px-wrap").appendChild(Pix.icon(a.food));
   },
 
@@ -3060,11 +3473,14 @@ const App = {
     const A = this.A, id = a.id, toy = TOYS[id], row = d.querySelector("[data-toyrow]");
     if (!row) return;
     const hu = this.hunger(id), ev = A.event && A.event.animal === id ? A.event : null;
-    row.innerHTML = `<div class="row-txt"><span class="px-wrap"></span> ${this.played(id) ? `${a.der} hat heute schon gespielt 💖` : `Spielzeug: ${toy.name}`}</div>
-      ${this.played(id) ? "" : this.sad(id) ? `<p class="small">Erst trösten.</p>`
-        : ev ? `<p class="small">Zuerst: ${EVENTS[ev.type].action}.</p>`
-        : hu > 0 || this.dirt(id) > 0 ? `<p class="small">Erst füttern und sauber machen, dann spielen.</p>`
-        : `<button class="btn primary big" data-toy>🎁 ${toy.name} erspielen · ${ZOO.TOY_TASKS} Aufgaben</button>`}`;
+    const two = this.hasFriend(id);
+    row.innerHTML = `<div class="row-txt"><span class="px-wrap"></span> ${this.played(id)
+        ? this.bi(`${two ? "Beide " + FRIENDS[id].plural + " haben" : a.der + " hat"} heute schon gespielt 💖`, `${two ? "Both " + a.enPl + " have" : this.enName(a) + " has"} already played today.`)
+        : this.bi(`Spielzeug: ${toy.name}`, `Toy: ${toy.en}`)}</div>
+      ${this.played(id) ? "" : this.sad(id) ? `<p class="small">${this.bi("Erst trösten.", "Comfort first.")}</p>`
+        : ev ? `<p class="small">${this.bi(`Zuerst: ${EVENTS[ev.type].action}.`, `First: ${EVENTS[ev.type].enAction.toLowerCase()}.`)}</p>`
+        : hu > 0 || this.dirt(id) > 0 ? `<p class="small">${this.bi("Erst füttern und sauber machen, dann spielen.", "First feed and clean, then play.")}</p>`
+        : this.bbtn("data-toy", `🎁 ${toy.name} erspielen · ${ZOO.TOY_TASKS} Aufgaben`, `Win the ${toy.en} · ${ZOO.TOY_TASKS} tasks`)}`;
     row.querySelector(".px-wrap").appendChild(Pix.icon(toy.sprite));
     const tb = row.querySelector("[data-toy]");
     if (tb) tb.onclick = () => {
@@ -3079,7 +3495,7 @@ const App = {
     const toy = TOYS[a.id];
     const d = this.dialog(`<div class="enc-big"><div class="scene big" data-bigscene></div></div>
       <p class="dlg-title">🎁 ${U.esc(toy.name)}!</p>
-      <div class="row" data-playrow><div class="row-txt">${a.der} spielt …</div></div>
+      <div class="row" data-playrow><div class="row-txt">${this.bi(`${a.der} spielt …`, `${this.enName(a)} is playing …`)}</div></div>
       <button class="btn primary big" data-close>Super!</button>`, dd => { dd.dataset.rerender = "1"; });
     const sc = d.querySelector("[data-bigscene]"), row = d.querySelector("[data-playrow]");
     Sound.play("coin");
@@ -3088,7 +3504,7 @@ const App = {
       this.scene(sc, a, true);
       this.hearts(sc, 8, true);
       Sound.play("finish"); Confetti.burst(90);
-      row.innerHTML = `<div class="row-txt"><span class="px-wrap"></span> ${a.der} ist superglücklich 💖</div>
+      row.innerHTML = `<div class="row-txt"><span class="px-wrap"></span> ${this.bi(`${a.der} ist superglücklich 💖`, `${this.enName(a)} is super happy!`)}</div>
         <div class="yum"><div class="yum-mio">${Mio.svg("party")}</div><div class="bubble">${U.esc(toy.fun)}</div></div>`;
       row.querySelector(".px-wrap").appendChild(Pix.icon(toy.sprite));
     } });
@@ -3113,12 +3529,36 @@ const App = {
       d => { this.scene(d.querySelector("[data-bigscene]"), a, true); d.dataset.rerender = "1"; });
   },
 
+  lockedRow() {
+    return `<div class="food-row locked-row"><span class="food-ico lock-ico">🔒</span>
+      <div class="food-txt"><b>Bald neu</b><span>kommt mit einem neuen Tier</span></div></div>`;
+  },
+  buyFriend(id) {
+    const A = this.A;
+    if (A.wallet < FRIEND_PRICE || !A.unlocked.includes(id) || this.hasFriend(id)) return;
+    A.wallet -= FRIEND_PRICE; A.animals[id].friend = true;
+    // falls heute schon gefüttert: der Neue hat auch gegessen (keine Strafe beim Kauf)
+    A.friendWelcome = (A.friendWelcome || []).concat(id);
+    Store.save(); this.bump("friends");
+    Sound.play("coin");
+    this.render(true);
+  },
+  friendPopup() {
+    const id = this.A.friendWelcome.shift(); Store.save();
+    const a = this.animal(id);
+    Sound.play("finish"); Confetti.burst(150, "hearts");
+    this.dialog(`<p class="dlg-title">💕 Neuer Freund!</p><div class="enc-big"><div class="scene big" data-bigscene></div></div>
+      <p>Im ${a.geh}-Gehege wohnt jetzt ${FRIENDS[id].ein}!${id === "owl" ? " Sie bekommt ihre eigene Sitzstange." : ""}</p>
+      <p class="small">${this.hunger(id) === 0 ? "Ab morgen" : "Ab jetzt"} braucht das Gehege 2 Portionen ${FOODS[a.food].name} am Tag. Das Spielzeug teilen sich beide.</p>
+      <button class="btn primary big" data-close>Willkommen!</button>`,
+      d => { this.scene(d.querySelector("[data-bigscene]"), a, true); d.dataset.rerender = "1"; });
+  },
   welcomeAnimal() {
     const id = this.A.welcome.shift(); Store.save();
     const a = this.animal(id);
     Sound.play("finish"); Confetti.burst(150);
     this.dialog(`<p class="dlg-title">🎉 Neues Tier!</p><div class="enc-big"><div class="scene big" data-bigscene></div></div>
-      <p>${a.der} zieht in deinen Zoo ein! ${a.der.split(" ")[0] === "Der" ? "Er" : "Sie"} frisst gern <b>${FOODS[a.food].name}</b>.</p>
+      <p>${a.der} zieht in deinen Zoo ein! ${a.er} frisst gern <b>${FOODS[a.food].name}</b>.</p>
       <button class="btn primary big" data-close>Willkommen!</button>`,
       d => { this.scene(d.querySelector("[data-bigscene]"), a, true); d.dataset.rerender = "1"; });
   },
