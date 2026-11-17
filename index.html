@@ -449,7 +449,7 @@ body.in-lesson .bottom-nav { display: none; }
 <div class="wrap" id="app"></div>
 <div id="lesson" hidden></div>
 <script>
-const APP_VERSION = "1.15";
+const APP_VERSION = "1.16";
 /* =====================================================================
    VOKABELN
    ---------------------------------------------------------------------
@@ -2157,16 +2157,29 @@ const Scene = {
       if (((x - cx) / rx) ** 2 + ((y - cy) / ry) ** 2 <= 1) g.fillRect(x, y, 1, 1);
   },
   speck(g, r, x0, y0, w, h, n, cols) { for (let i = 0; i < n; i++) this.fill(g, x0 + Math.floor(r() * w), y0 + Math.floor(r() * h), 1, 1, cols[i % cols.length]); },
-  tree(g, x, y, big) {
+  /* Jahreszeiten-Look: "autumn", "winter", "spring", "late" oder null (Sommer) */
+  LEAVES: ["#d9822b", "#c0392b", "#e8b04a", "#b5482a"],
+  tree(g, x, y, big, L) {
     this.fill(g, x - 1, y, 3, big ? 8 : 6, "#7a4b2a"); this.fill(g, x - 1, y, 1, big ? 8 : 6, "#5e3a1a");
-    this.ell(g, x, y - 2, big ? 7 : 5, big ? 6 : 5, "#2f7232"); this.ell(g, x - 1, y - 3, big ? 6 : 4, big ? 5 : 4, "#4f9e3f");
-    this.fill(g, x - 3, y - 6, 2, 1, "#7cc46a"); this.fill(g, x + 1, y - 4, 2, 1, "#7cc46a");
+    const rx = big ? 7 : 5, ry = big ? 6 : 5;
+    const col = L === "autumn" ? ["#b5482a", "#e07b2c", "#f2c14a"] : L === "late" ? ["#3f7f2f", "#7a9e3a", "#e0b84a"] : ["#2f7232", "#4f9e3f", "#7cc46a"];
+    this.ell(g, x, y - 2, rx, ry, col[0]); this.ell(g, x - 1, y - 3, rx - 1, ry - 1, col[1]);
+    this.fill(g, x - 3, y - 6, 2, 1, col[2]); this.fill(g, x + 1, y - 4, 2, 1, col[2]);
+    if (L === "autumn") { this.fill(g, x + 2, y - 1, 1, 1, "#c0392b"); this.fill(g, x - 4, y - 2, 1, 1, "#f2c14a"); this.fill(g, x, y - 6, 1, 1, "#c0392b"); }
+    if (L === "winter") { this.ell(g, x - 1, y - 2 - ry + 2, rx - 2, 1.6, "#ffffff"); this.fill(g, x + 3, y - 2, 2, 1, "#ffffff"); this.fill(g, x - 5, y - 1, 2, 1, "#ffffff"); }
+    if (L === "spring") [[-3, -4], [2, -2], [-1, 0], [3, -5], [-5, -1], [0, -6]].forEach(([dx, dy], i) => this.fill(g, x + dx, y + dy, 1, 1, i % 2 ? "#ffffff" : "#ff9db8"));
   },
-  acacia(g, x, y) {
+  acacia(g, x, y, L) {
     this.fill(g, x, y, 2, 12, "#7a4b2a"); this.fill(g, x - 3, y + 2, 3, 1, "#7a4b2a"); this.fill(g, x + 2, y + 1, 3, 1, "#7a4b2a");
-    this.ell(g, x + 1, y - 1, 10, 3, "#3f7f2f"); this.ell(g, x + 1, y - 2, 9, 2, "#5f9f3f");
+    const col = L === "autumn" ? ["#b8602a", "#e8a03a"] : L === "late" ? ["#6f8a2f", "#a8b84a"] : ["#3f7f2f", "#5f9f3f"];
+    this.ell(g, x + 1, y - 1, 10, 3, col[0]); this.ell(g, x + 1, y - 2, 9, 2, col[1]);
+    if (L === "winter") this.fill(g, x - 6, y - 4, 15, 1, "#ffffff");
+    if (L === "spring") for (let i = -8; i <= 9; i += 3) this.fill(g, x + i, y - 2 + (i % 2), 1, 1, i % 2 ? "#ffffff" : "#ff9db8");
   },
-  rock(g, x, y, snow) { this.ell(g, x, y, 4, 3, "#7b7f8c"); this.ell(g, x - 1, y - 1, 3, 2, snow ? "#ffffff" : "#a3a8b5"); },
+  rock(g, x, y, snow, L, noLeaves) {
+    this.ell(g, x, y, 4, 3, "#7b7f8c"); this.ell(g, x - 1, y - 1, 3, 2, snow || L === "winter" ? "#ffffff" : "#a3a8b5");
+    if (L === "autumn" && !noLeaves) { this.fill(g, x - 2, y - 2, 2, 1, "#d9822b"); this.fill(g, x + 1, y - 2, 1, 1, "#c0392b"); this.fill(g, x, y - 3, 1, 1, "#e8b04a"); }
+  },
   line(g, x0, y0, x1, y1, c) {
     g.fillStyle = c;
     const dx = Math.abs(x1 - x0), dy = -Math.abs(y1 - y0), sx = x0 < x1 ? 1 : -1, sy = y0 < y1 ? 1 : -1;
@@ -2175,44 +2188,57 @@ const Scene = {
   },
   draw(canvas, animal, extra) {
     extra = extra || {};
+    const L = extra.look || null;
     const g = canvas.getContext("2d"), r = Pix.rng(animal.id), W = 64, H = 44;
     canvas.width = W; canvas.height = H;
     this.fill(g, 0, 0, W, H, "#6abe4b");
     this.speck(g, r, 0, 0, W, H, 140, ["#5aa83f", "#7fd05a", "#58a03c"]);
     const hab = animal.habitat;
+    const iceRim = c => L === "winter" ? "#d8f0fb" : c;
     if (hab === "ice") {
       this.fill(g, 3, 5, 58, 35, "#e3f4fb"); this.speck(g, r, 3, 5, 58, 35, 70, ["#c4e6f5", "#ffffff"]);
-      this.ell(g, 47, 15, 11, 6, "#3d8cc4"); this.ell(g, 47, 15, 10, 5, "#5aaee0"); this.fill(g, 42, 13, 4, 1, "#a8dcf7"); this.fill(g, 49, 17, 3, 1, "#a8dcf7");
-      this.rock(g, 12, 12, true); this.rock(g, 54, 33, true);
+      this.ell(g, 47, 15, 11, 6, iceRim("#3d8cc4")); this.ell(g, 47, 15, 10, 5, "#5aaee0"); this.fill(g, 42, 13, 4, 1, "#a8dcf7"); this.fill(g, 49, 17, 3, 1, "#a8dcf7");
+      this.rock(g, 12, 12, true, L, true); this.rock(g, 54, 33, true, L, true);
     } else if (hab === "water") {
       this.fill(g, 3, 5, 58, 35, "#e9d8a6"); this.speck(g, r, 3, 5, 58, 35, 50, ["#d8c48c", "#f4e6bd"]);
-      this.ell(g, 32, 20, 24, 11, "#2f7fb8"); this.ell(g, 32, 20, 22, 10, "#4aa3df");
+      this.ell(g, 32, 20, 24, 11, iceRim("#2f7fb8")); this.ell(g, 32, 20, 22, 10, "#4aa3df");
       [[18, 16, 5], [36, 14, 4], [26, 24, 6], [44, 22, 4]].forEach(([x, y, w]) => this.fill(g, x, y, w, 1, "#8fd0f5"));
-      this.rock(g, 54, 33); this.rock(g, 9, 33);
+      this.rock(g, 54, 33, false, L); this.rock(g, 9, 33, false, L);
     } else if (hab === "forest") {
       this.fill(g, 3, 5, 58, 35, "#5fae45"); this.speck(g, r, 3, 5, 58, 35, 60, ["#4f9a3c", "#79c85a"]);
-      this.tree(g, 11, 14, true); this.tree(g, 53, 15, true); this.tree(g, 44, 10);
+      this.tree(g, 11, 14, true, L); this.tree(g, 53, 15, true, L); this.tree(g, 44, 10, false, L);
       this.fill(g, 20, 20, 12, 2, "#7a4b2a"); this.fill(g, 20, 20, 12, 1, "#9a6a3a"); this.fill(g, 21, 22, 2, 12, "#7a4b2a");
       // zweite Sitzstange, sobald eine zweite Eule da ist
       if (extra.perch2) { this.fill(g, 38, 26, 13, 2, "#7a4b2a"); this.fill(g, 38, 26, 13, 1, "#9a6a3a"); this.fill(g, 48, 28, 2, 8, "#7a4b2a"); }
     } else if (hab === "savanna") {
       this.fill(g, 3, 5, 58, 35, "#e8c96f"); this.speck(g, r, 3, 5, 58, 35, 70, ["#d4b05a", "#f2da8c"]);
-      for (let i = 0; i < 10; i++) { const x = 6 + Math.floor(r() * 52), y = 8 + Math.floor(r() * 30); this.fill(g, x, y, 1, 2, "#8f9e3a"); this.fill(g, x + 1, y - 1, 1, 3, "#a8b84a"); this.fill(g, x + 2, y, 1, 2, "#8f9e3a"); }
-      if (animal.id === "giraffe") this.acacia(g, 49, 10);
+      const tuft = L === "autumn" || L === "late" ? ["#b8a040", "#c9b04a"] : ["#8f9e3a", "#a8b84a"];
+      for (let i = 0; i < 10; i++) { const x = 6 + Math.floor(r() * 52), y = 8 + Math.floor(r() * 30); this.fill(g, x, y, 1, 2, tuft[0]); this.fill(g, x + 1, y - 1, 1, 3, tuft[1]); this.fill(g, x + 2, y, 1, 2, tuft[0]); }
+      if (animal.id === "giraffe") this.acacia(g, 49, 10, L);
       else if (animal.id === "zebra") {
         // Sandplatz zum Wälzen, Grasflecken zum Grasen, Wassertränke
         this.ell(g, 22, 33, 11, 4, "#f2dc9a"); this.speck(g, r, 12, 30, 20, 7, 14, ["#e2c67e", "#fbe9b4"]);
-        [[30, 14], [14, 13], [40, 22]].forEach(([x, y]) => { for (let i = 0; i < 9; i++) this.fill(g, x + (i % 5) * 2 - 4, y + Math.floor(i / 5) * 2, 1, 2, i % 2 ? "#7fae3a" : "#94c24a"); });
+        [[30, 14], [14, 13], [40, 22]].forEach(([x, y]) => { for (let i = 0; i < 9; i++) this.fill(g, x + (i % 5) * 2 - 4, y + Math.floor(i / 5) * 2, 1, 2, L === "autumn" || L === "late" ? (i % 2 ? "#b8a040" : "#c9b04a") : (i % 2 ? "#7fae3a" : "#94c24a")); });
         this.fill(g, 47, 28, 11, 5, "#8b5a2b"); this.fill(g, 47, 28, 11, 1, "#b07a42"); this.fill(g, 48, 29, 9, 2, "#5aaee0"); this.fill(g, 49, 29, 3, 1, "#a8dcf7");
         this.fill(g, 48, 33, 1, 2, "#5e3a1a"); this.fill(g, 56, 33, 1, 2, "#5e3a1a");
       }
-      else { this.ell(g, 50, 30, 8, 4, "#3a8fd0"); this.ell(g, 50, 30, 7, 3, "#5aaee0"); this.fill(g, 47, 29, 3, 1, "#a8dcf7"); }
-      this.rock(g, 10, 12);
+      else { this.ell(g, 50, 30, 8, 4, iceRim("#3a8fd0")); this.ell(g, 50, 30, 7, 3, "#5aaee0"); this.fill(g, 47, 29, 3, 1, "#a8dcf7"); }
+      this.rock(g, 10, 12, false, L);
     } else if (hab === "jungle") {
       this.fill(g, 3, 5, 58, 35, "#4f9a3c"); this.speck(g, r, 3, 5, 58, 35, 70, ["#3f8a32", "#62b04a"]);
-      [[10, 12], [54, 11], [8, 34], [56, 32], [30, 9]].forEach(([x, y]) => { this.ell(g, x, y, 6, 4, "#2a6a2e"); this.ell(g, x - 1, y - 1, 5, 3, "#3f8f3a"); this.fill(g, x - 2, y - 3, 2, 1, "#6fbf5a"); });
-      this.rock(g, 44, 22);
+      [[10, 12], [54, 11], [8, 34], [56, 32], [30, 9]].forEach(([x, y], i) => {
+        this.ell(g, x, y, 6, 4, "#2a6a2e"); this.ell(g, x - 1, y - 1, 5, 3, L === "autumn" && i % 2 ? "#8f8a32" : "#3f8f3a"); this.fill(g, x - 2, y - 3, 2, 1, "#6fbf5a");
+        if (L === "winter") this.fill(g, x - 4, y - 4, 6, 1, "#ffffff");
+        if (L === "spring") { this.fill(g, x + 2, y - 2, 1, 1, "#ff9db8"); this.fill(g, x - 3, y, 1, 1, "#ffffff"); }
+      });
+      this.rock(g, 44, 22, false, L);
     }
+    // Jahreszeit auf dem Boden (nur angedeutet)
+    const rs = Pix.rng(animal.id + (L || ""));
+    if (L === "autumn" && hab !== "ice") { this.speck(g, rs, 4, 7, 56, 32, 34, this.LEAVES); this.speck(g, rs, 0, 0, 64, 44, 30, this.LEAVES); }
+    if (L === "late" && hab !== "ice") this.speck(g, rs, 4, 7, 56, 32, 10, ["#e8b04a", "#d9822b"]);
+    if (L === "winter") { this.speck(g, rs, 0, 0, 64, 44, 70, ["#ffffff", "#eef7fb"]); if (hab !== "ice") this.speck(g, rs, 4, 7, 56, 32, 40, ["#ffffff", "#f4f9fc"]); }
+    if (L === "spring") { this.speck(g, rs, 0, 0, 64, 44, 18, ["#ff9db8", "#fff27a", "#ffffff", "#c9a7ff"]); if (hab === "forest" || hab === "jungle") this.speck(g, rs, 4, 7, 56, 32, 14, ["#ff9db8", "#fff27a", "#ffffff"]); }
     // Zaun
     const post = (x, y) => { this.fill(g, x, y, 2, 4, "#8b5a2b"); this.fill(g, x, y, 2, 1, "#b07a42"); this.fill(g, x + 1, y + 1, 1, 3, "#5e3a1a"); };
     this.fill(g, 2, 4, 60, 1, "#a06a36"); this.fill(g, 2, 5, 60, 1, "#5e3a1a");
@@ -2222,6 +2248,7 @@ const Scene = {
     for (let x = 2; x <= 23; x += 7) post(x, 37);
     for (let x = 39; x <= 60; x += 7) post(x, 37);
     post(26, 36); post(36, 36);
+    if (L === "winter") { for (let x = 2; x <= 61; x += 2) this.fill(g, x, 3, 1, 1, "#ffffff"); for (let x = 2; x <= 60; x += 7) this.fill(g, x, 2, 2, 1, "#ffffff"); }
     // Weg zum Tor
     this.fill(g, 28, 40, 8, 4, "#cfa86a"); this.speck(g, r, 28, 40, 8, 4, 8, ["#b8915a"]);
   },
@@ -3133,6 +3160,8 @@ const App = {
     const d = new Date(), md = (d.getMonth() + 1) * 100 + d.getDate();
     return SEASONS.find(x => x.from <= x.to ? md >= x.from && md <= x.to : md >= x.from || md <= x.to) || SEASONS[0];
   },
+  /* Aussehen der Gehege je Jahreszeit (gratis, nur angedeutet) */
+  look() { return { autumn: "autumn", xmas: "winter", winter: "winter", spring: "spring", easter: "spring", latesummer: "late" }[this.season().id] || null; },
   seasonDecos() { const s = this.season(); return DECOS.filter(d => d.season === s.id); },
   hasDeco(id, aid) { return ((this.A.decos || {})[id] || []).includes(aid); },
   decoVariant(item, aid) {
@@ -3465,7 +3494,7 @@ const App = {
   scene(el, a, big, opts) {
     opts = opts || {};
     el.innerHTML = "";
-    const bg = document.createElement("canvas"); bg.className = "bg"; Scene.draw(bg, a, { perch2: a.id === "owl" && this.hasFriend("owl") }); el.appendChild(bg);
+    const bg = document.createElement("canvas"); bg.className = "bg"; Scene.draw(bg, a, { perch2: a.id === "owl" && this.hasFriend("owl"), look: this.look() }); el.appendChild(bg);
     const evNow = this.A.event && this.A.event.animal === a.id ? EVENTS[this.A.event.type] : null;
     if (evNow && evNow.overlay) { const ov = document.createElement("canvas"); ov.className = "bg"; Scene.eventOverlay(ov, evNow.overlay, a); el.appendChild(ov); }
     const F = FRIENDS[a.id], friend = this.hasFriend(a.id);
