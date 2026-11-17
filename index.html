@@ -449,7 +449,7 @@ body.in-lesson .bottom-nav { display: none; }
 <div class="wrap" id="app"></div>
 <div id="lesson" hidden></div>
 <script>
-const APP_VERSION = "1.16";
+const APP_VERSION = "1.17";
 /* =====================================================================
    VOKABELN
    ---------------------------------------------------------------------
@@ -2199,6 +2199,16 @@ const Scene = {
       this.fill(g, 3, 5, 58, 35, "#e3f4fb"); this.speck(g, r, 3, 5, 58, 35, 70, ["#c4e6f5", "#ffffff"]);
       this.ell(g, 47, 15, 11, 6, iceRim("#3d8cc4")); this.ell(g, 47, 15, 10, 5, "#5aaee0"); this.fill(g, 42, 13, 4, 1, "#a8dcf7"); this.fill(g, 49, 17, 3, 1, "#a8dcf7");
       this.rock(g, 12, 12, true, L, true); this.rock(g, 54, 33, true, L, true);
+      if (L === "winter") {
+        // frische Schneewehen und Eiszapfen an den Felsen
+        [[22, 36, 6], [40, 8, 5], [6, 30, 3]].forEach(([x, y, w]) => { this.ell(g, x, y, w, 1.6, "#ffffff"); this.fill(g, x - w + 2, y + 1, w * 2 - 3, 1, "#cfe8f6"); });
+        [[9, 14], [11, 15], [14, 14], [52, 35], [55, 35], [57, 34]].forEach(([x, y], i) => this.fill(g, x, y, 1, 1 + (i % 2), "#bfe6fa"));
+      }
+      if (L === "spring") {
+        // Tauwetter: kleine Schmelzpfützen und feine Risse im Eis
+        [[29, 12, 4], [9, 25, 3], [43, 35, 3]].forEach(([x, y, w]) => { this.ell(g, x, y, w, 1.8, "#6fb6e4"); this.ell(g, x, y, w - 1, 1.2, "#8fcbee"); this.fill(g, x - 1, y - 1, 2, 1, "#d6f1fc"); });
+        this.line(g, 35, 18, 38, 21, "#8fbcd8"); this.line(g, 38, 21, 37, 24, "#8fbcd8"); this.line(g, 58, 21, 55, 24, "#8fbcd8");
+      }
     } else if (hab === "water") {
       this.fill(g, 3, 5, 58, 35, "#e9d8a6"); this.speck(g, r, 3, 5, 58, 35, 50, ["#d8c48c", "#f4e6bd"]);
       this.ell(g, 32, 20, 24, 11, iceRim("#2f7fb8")); this.ell(g, 32, 20, 22, 10, "#4aa3df");
@@ -2235,10 +2245,14 @@ const Scene = {
     }
     // Jahreszeit auf dem Boden (nur angedeutet)
     const rs = Pix.rng(animal.id + (L || ""));
+    // nur auf dem Rasen außerhalb des Zauns (für das Pinguin-Eis)
+    const rim = (n, cols) => { for (let i = 0; i < n; i++) { let x, y; do { x = Math.floor(rs() * W); y = Math.floor(rs() * H); } while (x >= 2 && x <= 61 && y >= 2 && y <= 40); this.fill(g, x, y, 1, 1, cols[i % cols.length]); } };
+    if (L === "autumn" && hab === "ice") rim(26, this.LEAVES);
     if (L === "autumn" && hab !== "ice") { this.speck(g, rs, 4, 7, 56, 32, 34, this.LEAVES); this.speck(g, rs, 0, 0, 64, 44, 30, this.LEAVES); }
     if (L === "late" && hab !== "ice") this.speck(g, rs, 4, 7, 56, 32, 10, ["#e8b04a", "#d9822b"]);
     if (L === "winter") { this.speck(g, rs, 0, 0, 64, 44, 70, ["#ffffff", "#eef7fb"]); if (hab !== "ice") this.speck(g, rs, 4, 7, 56, 32, 40, ["#ffffff", "#f4f9fc"]); }
-    if (L === "spring") { this.speck(g, rs, 0, 0, 64, 44, 18, ["#ff9db8", "#fff27a", "#ffffff", "#c9a7ff"]); if (hab === "forest" || hab === "jungle") this.speck(g, rs, 4, 7, 56, 32, 14, ["#ff9db8", "#fff27a", "#ffffff"]); }
+    if (L === "spring" && hab === "ice") rim(14, ["#ff9db8", "#fff27a", "#ffffff", "#c9a7ff"]);
+    if (L === "spring" && hab !== "ice") { this.speck(g, rs, 0, 0, 64, 44, 18, ["#ff9db8", "#fff27a", "#ffffff", "#c9a7ff"]); if (hab === "forest" || hab === "jungle") this.speck(g, rs, 4, 7, 56, 32, 14, ["#ff9db8", "#fff27a", "#ffffff"]); }
     // Zaun
     const post = (x, y) => { this.fill(g, x, y, 2, 4, "#8b5a2b"); this.fill(g, x, y, 2, 1, "#b07a42"); this.fill(g, x + 1, y + 1, 1, 3, "#5e3a1a"); };
     this.fill(g, 2, 4, 60, 1, "#a06a36"); this.fill(g, 2, 5, 60, 1, "#5e3a1a");
