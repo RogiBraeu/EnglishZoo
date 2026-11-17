@@ -345,6 +345,40 @@ canvas.dirt.sweep { animation: sweepOut 2.6s linear forwards; }
 .joker-mio .mio { width: 120px; }
 .joker-broom { position: absolute; width: 60px; right: -38px; bottom: 0; image-rendering: pixelated; }
 .en-inline { color: #2F6DB5; font-weight: 600; }
+/* Deko und Wetter */
+.scene canvas.lights { animation: blink 1.2s steps(1) infinite; }
+.scene canvas.lights.l1 { animation-delay: .6s; }
+@keyframes blink { 50% { opacity: .25; } }
+.px.deco-ghost { animation: ghostFloat 2.4s ease-in-out infinite; }
+@keyframes ghostFloat { 50% { transform: translateY(-14%); } }
+.px.deco-ghost.g-penguin { animation: gSlide 3.2s ease-in-out infinite; }
+@keyframes gSlide { 0%, 50%, 100% { transform: translateX(0) rotate(0); } 25% { transform: translateX(130%) rotate(14deg); } 75% { transform: translateX(-130%) rotate(-14deg); } }
+.px.deco-ghost.g-seal { animation: gDive 3.6s ease-in-out infinite; }
+@keyframes gDive { 0%, 100% { transform: translateY(0); opacity: 1; } 30% { transform: translateY(80%); opacity: 0; } 55% { transform: translateY(80%); opacity: 0; }
+  68% { transform: translateY(-35%); opacity: 1; } 80% { transform: translateY(0); } }
+.px.deco-ghost.g-owl { animation: gBoo 3s ease-in-out infinite; transform-origin: 50% 100%; }
+@keyframes gBoo { 0%, 55%, 100% { transform: translateY(0) scale(1); } 30% { transform: translateY(-10%) scale(1); } 65% { transform: scale(1.6); } 75% { transform: scale(1.5); } 85% { transform: scale(1); } }
+.px.deco-ghost.g-elephant { animation: gLoop 3s linear infinite; }
+@keyframes gLoop { from { transform: rotate(0) translateX(70%) rotate(0); } to { transform: rotate(360deg) translateX(70%) rotate(-360deg); } }
+.px.deco-ghost.g-zebra { animation: gHop .9s ease-in-out infinite; transform-origin: 50% 100%; }
+@keyframes gHop { 0%, 100% { transform: translateY(0) scale(1, 1); } 35% { transform: translateY(-45%) scale(.9, 1.1); } 65% { transform: translateY(0) scale(1.15, .85); } }
+.px.deco-ghost.g-tiger { animation: gSpin 2.4s ease-in-out infinite; }
+@keyframes gSpin { 0%, 100% { transform: scaleX(1) translateY(0); } 25% { transform: scaleX(-1) translateY(-12%); } 50% { transform: scaleX(1) translateY(0); } 75% { transform: scaleX(-1) translateY(-12%); } }
+.px.deco-ghost.g-giraffe { animation: gStretch 2.6s ease-in-out infinite; transform-origin: 50% 100%; }
+@keyframes gStretch { 0%, 100% { transform: scaleY(1); } 50% { transform: scaleY(1.4); } }
+.px.deco-lantern { filter: drop-shadow(0 0 2px rgba(255,230,120,.9)); }
+.weather { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
+.weather i { position: absolute; display: block; width: 2.8%; aspect-ratio: 1; }
+.w-snow i { animation: wFall linear infinite; opacity: .9; }
+.w-leaves i { width: 3.6%; aspect-ratio: 1.6; animation: wLeaf linear infinite; }
+.w-petals i { width: 3.2%; aspect-ratio: 1.4; animation: wLeaf linear infinite; border-radius: 40%; }
+.w-sparkles i { width: 2.6%; animation: wSpark ease-in-out infinite; }
+.w-fluff i { width: 2.6%; border-radius: 50%; animation: wDrift linear infinite; opacity: .85; }
+@keyframes wFall { from { transform: translateY(0); } to { transform: translateY(3200%); } }
+@keyframes wLeaf { 0% { transform: translate(0, 0) rotate(0); } 25% { transform: translate(150%, 700%) rotate(90deg); } 50% { transform: translate(-100%, 1400%) rotate(180deg); }
+  75% { transform: translate(150%, 2100%) rotate(270deg); } 100% { transform: translate(0, 2800%) rotate(360deg); } }
+@keyframes wSpark { 0%, 100% { opacity: 0; transform: translateY(0); } 50% { opacity: 1; transform: translateY(-300%); } }
+@keyframes wDrift { from { transform: translate(0, 0); } to { transform: translate(1800%, -400%); } }
 .locked-row { opacity: .6; }
 .lock-ico { width: 44px; text-align: center; font-size: 30px; }
 .have { font-size: 26px; min-width: 96px; text-align: center; }
@@ -415,7 +449,7 @@ body.in-lesson .bottom-nav { display: none; }
 <div class="wrap" id="app"></div>
 <div id="lesson" hidden></div>
 <script>
-const APP_VERSION = "1.10";
+const APP_VERSION = "1.13";
 /* =====================================================================
    VOKABELN
    ---------------------------------------------------------------------
@@ -2329,6 +2363,136 @@ Pix.trophy = function (shape, metal, locked) {
   c.className = "px-trophy";
   return c;
 };
+
+/* ---------- Saison-Deko (B/C = Farbe je Gehege, A = Licht) ---------- */
+Object.assign(SPR, {
+  pumpkin: [
+    "......lL....",
+    "...kkkkkkk..",
+    "..ktotttotk.",
+    ".ktyytttyytk",
+    ".kttttyttttk",
+    ".ktyttttttyk",
+    ".kttyyyyyytk",
+    "..ktotttotk.",
+    "...kkkkkkk.."],
+  pumpkin2: [
+    "......lL....",
+    "...kkkkkkk..",
+    "..ktotttotk.",
+    ".kttyttyyttk",
+    ".ktyytttyttk",
+    ".kttttyttttk",
+    ".ktyttttttyk",
+    "..ktyyyyytk.",
+    "...kkkkkkk.."],
+  lantern: [
+    ".nnnnnnn..",
+    ".n....k...",
+    ".n...kkk..",
+    ".n..kBBBk.",
+    ".n.kBAABBk",
+    ".n.kBAABBk",
+    ".n.kBBBBBk",
+    ".n..kBBBk.",
+    ".n...kkk..",
+    ".n........",
+    ".n........",
+    ".n........",
+    "knk......."],
+  ghost: [
+    "..kkkkk..",
+    ".kwwwwwk.",
+    "kwwwwwwwk",
+    "kwkwwwkwk",
+    "kwkwwwkwk",
+    "kwwwwwwwk",
+    "kwwwkwwwk",
+    "kwwwwwwwk",
+    "kwkwwwkwk",
+    "k.kk.kk.k"],
+  ghost_striped: [
+    "..kkkkk..",
+    ".kwSwSwk.",
+    "kwSwSwSwk",
+    "kwkwSwkwk",
+    "kwkSwSkwk",
+    "kSwSwSwSk",
+    "kwSwkwSwk",
+    "kSwSwSwSk",
+    "kwkSwSkwk",
+    "k.kk.kk.k"],
+  ghost_tall: [
+    "..kkk....",
+    ".kwwwk...",
+    ".kwkwk...",
+    ".kwwwk...",
+    "..kwk....",
+    "..kSk....",
+    "..kwk....",
+    ".kkwkkk..",
+    "kwwSwwwk.",
+    "kwwwwSwk.",
+    "kSwwwwSk.",
+    "kwwwSwwk.",
+    "kwwwwwwk.",
+    "k.kk.k.k."],
+  xtree: [
+    "......y......",
+    ".....yyy.....",
+    "......L......",
+    ".....LLL.....",
+    "....LLBLL....",
+    "...LlLLLlL...",
+    ".....LLL.....",
+    "....LCLLL....",
+    "...LLLLlLL...",
+    "..LBLLLLLCL..",
+    "....LLLLL....",
+    "...LLlLLLL...",
+    "..LLCLLLBLL..",
+    ".LLLLLlLLLLL.",
+    "......n......",
+    ".....nnn....."],
+  lightsicon: [
+    "kk..kk..kk.",
+    "..kk..kk..k",
+    ".r..e..y..p",
+    ".r..e..y..p"],
+  presents: [
+    "..y.y.......",
+    "...y...y.y..",
+    ".kkykk..y...",
+    ".kByBk.kkykk",
+    ".kByBk.kCyCk",
+    ".kyyyk.kyyyk",
+    ".kByBk.kCyCk",
+    ".kkkkk.kkkkk"]
+});
+/* Sprite mit eigenen Farben (und auf Wunsch dunklem Rand) */
+Pix.variant = function (name, map, outline) {
+  const key = name + JSON.stringify(map || {}) + (outline ? "o" : "");
+  if (this.cache[key]) return this.cache[key];
+  const rows = SPR[name], h = rows.length, w = Math.max(...rows.map(r => r.length));
+  const pal = Object.assign({}, PAL, map || {});
+  const c = document.createElement("canvas"); c.width = w + (outline ? 2 : 0); c.height = h + (outline ? 2 : 0);
+  const g = c.getContext("2d"), o = outline ? 1 : 0;
+  if (outline) {
+    g.fillStyle = "#2a2130";
+    rows.forEach((r, y) => [...r].forEach((ch, x) => { if (ch !== "." && pal[ch]) { g.fillRect(x, y + 1, 1, 1); g.fillRect(x + 2, y + 1, 1, 1); g.fillRect(x + 1, y, 1, 1); g.fillRect(x + 1, y + 2, 1, 1); } }));
+  }
+  rows.forEach((r, y) => [...r].forEach((ch, x) => { if (ch !== "." && pal[ch]) { g.fillStyle = pal[ch]; g.fillRect(x + o, y + o, 1, 1); } }));
+  return this.cache[key] = c;
+};
+Pix.elVar = function (name, map, outline, cls, cx, by, W, H) {
+  const src = this.variant(name, map, outline);
+  const c = document.createElement("canvas"); c.width = src.width; c.height = src.height;
+  c.getContext("2d").drawImage(src, 0, 0);
+  c.className = "px " + (cls || "");
+  // Ankerpunkt: unten in der Mitte
+  c.style.left = (100 * (cx - src.width / 2) / W) + "%"; c.style.top = (100 * (by - src.height) / H) + "%"; c.style.width = (100 * src.width / W) + "%";
+  return c;
+};
 /* =====================================================================
    PWA: Offline-Speicher, Update-Banner, Home-Bildschirm-Hinweis,
    dauerhafter Speicher und Sicherungscode (für beide Apps gleich)
@@ -2546,6 +2710,40 @@ const FRIENDS = {
 const FRIEND_PRICE = 250;
 /* Mio-Joker: für je so viele insgesamt verdiente XP gibt es einen Joker (nichts wird abgezogen) */
 const JOKER_XP = 1000;
+
+/* ---------- Jahreszeiten und Deko ----------
+   from/to = MMTT; Deko wird pro Gehege gekauft, bleibt im Besitz und ist nur in ihrer Saison zu sehen */
+const SEASONS = [
+  { id: "autumn", title: "Herbst", name: "Herbst", en: "autumn", from: 1001, to: 1130, weather: "leaves", until: "30. November" },
+  { id: "xmas", title: "Weihnachten", name: "Weihnachts", en: "Christmas", from: 1201, to: 106, weather: "snow", until: "6. Januar" },
+  { id: "winter", title: "Winter", name: "Winter", en: "winter", from: 107, to: 229, weather: "snow", until: "Ende Februar" },
+  { id: "spring", title: "Frühling", name: "Frühlings", en: "spring", from: 301, to: 331, weather: "petals", until: "31. März" },
+  { id: "easter", title: "Ostern", name: "Oster", en: "Easter", from: 401, to: 531, weather: "petals", until: "31. Mai" },
+  { id: "summer", title: "Sommer", name: "Sommer", en: "summer", from: 601, to: 731, weather: "sparkles", until: "31. Juli" },
+  { id: "latesummer", title: "Spätsommer", name: "Spätsommer", en: "late summer", from: 801, to: 930, weather: "fluff", until: "30. September" }
+];
+const DECO_COLORS = ["#e8475f", "#4D96FF", "#f4c430", "#3BC9A0", "#A78BFA", "#FF8A3D", "#ff9db0"];
+const DECOS = [
+  { id: "pumpkin", season: "autumn", name: "Kürbis-Laterne", en: "pumpkin lantern", price: 60, slot: "g1" },
+  { id: "lantern", season: "autumn", name: "Martinslaterne", en: "lantern", price: 60, slot: "g2" },
+  { id: "ghost", season: "autumn", name: "Kleines Gespenst", en: "little ghost", price: 80, slot: "air" },
+  { id: "presents", season: "xmas", name: "Geschenke", en: "presents", price: 60, slot: "g1" },
+  { id: "xtree", season: "xmas", name: "Tannenbaum", en: "Christmas tree", price: 100, slot: "g2" },
+  { id: "lights", season: "xmas", name: "Lichterkette", en: "fairy lights", price: 80, slot: "fence" }
+];
+/* Jedes Gehege hat sein eigenes Gespenst (Aussehen) – die Aktion steht im CSS (g-<tier>) */
+const GHOSTS = {
+  penguin: { name: "ghost", map: { w: "#dff3ff" } },                       // schlittert übers Eis
+  seal: { name: "ghost", map: { w: "#dcfff1" } },                          // taucht ab und ploppt hoch
+  owl: { name: "ghost", map: { w: "#efe6ff" } },                           // macht „Buh!“
+  elephant: { name: "ghost", map: { w: "#ffe3ec" } },                      // fliegt Loopings
+  zebra: { name: "ghost_striped", map: { S: "#2a2130" } },                 // gestreift, hüpft
+  tiger: { name: "ghost_striped", map: { w: "#f39a4a", S: "#2a2130" } },   // getigert, dreht sich
+  giraffe: { name: "ghost_tall", map: { S: "#c08a4e" } }                   // langer Hals, streckt sich
+};
+/* Plätze (unten Mitte) – dort stört die Deko die Tiere nicht */
+const DECO_SLOTS = { g1: [10, 37], g2: [54, 35], air: [31, 17] };
+const DECO_SLOT_FIX = { elephant: { g2: [40, 36] }, zebra: { g2: [40, 29] }, owl: { g2: [56, 37], air: [37, 31] }, tiger: { g1: [18, 37], g2: [46, 36], air: [38, 17] } };
 /* Was die Tiere tun, wenn sie satt sind.
    f = Bild, a = Start (x,y), b = Ziel, t = Sekunden, flip = gespiegelt, fx = Zusatzbild (z. B. Wasserspritzer) */
 const Z = (a, b) => ({ f: "zzz", a, b });
@@ -2850,6 +3048,8 @@ const TROPHIES = [
   { id: "events_10", shape: "medal", metal: "gold", name: "Zoo-Handwerker", desc: "Löse 10 Ereignisse im Zoo.", test: z => z.stat("events") >= 10 },
   { id: "full_zoo", shape: "heart", metal: "bronze", name: "Voller Zoo", desc: "Alle Tiere wohnen in deinem Zoo.", test: z => z.A.unlocked.length >= ANIMALS.length },
   { id: "first_friend", shape: "medal", metal: "ruby", name: "Erster Freund", desc: "Schenk einem Tier einen Freund.", test: z => ANIMALS.some(a => z.hasFriend(a.id)) },
+  { id: "autumn_zoo", shape: "cup", metal: "bronze", name: "Herbstzoo", desc: "Schmück jedes Gehege mit Herbst-Deko.", test: z => z.A.unlocked.length >= 2 && z.A.unlocked.every(id => DECOS.some(d => d.season === "autumn" && z.hasDeco(d.id, id))) },
+  { id: "xmas_zoo", shape: "star", metal: "ruby", name: "Weihnachtszoo", desc: "Schmück jedes Gehege mit Weihnachtsdeko.", test: z => z.A.unlocked.length >= 2 && z.A.unlocked.every(id => DECOS.some(d => d.season === "xmas" && z.hasDeco(d.id, id))) },
   { id: "joker", shape: "star", metal: "silver", name: "Mios Hilfe", desc: "Bekomme deinen ersten Mio-Joker.", test: z => (z.A.jokerAwarded || 0) >= 1 },
   { id: "all_friends", shape: "heart", metal: "gold", name: "Jeder hat einen Freund", desc: "In allen Gehegen wohnen zwei Tiere.", test: z => ANIMALS.every(a => z.A.unlocked.includes(a.id) && z.hasFriend(a.id)) }
 ];
@@ -2874,6 +3074,7 @@ const App = {
     if (!Data.set(A.setId)) A.setId = Data.sets[0].id;
     A.toys = A.toys || {}; A.days = A.days || {};
     A.stats = A.stats || {}; A.trophies = A.trophies || {}; A.trophyQueue = A.trophyQueue || []; A.xpDays = A.xpDays || {};
+    A.decos = A.decos || {};
     A.jokers = A.jokers || 0; A.jokerAwarded = A.jokerAwarded || 0; A.jokerNew = A.jokerNew || 0;
     this.ensureAnimals(true);
     this.checkHoliday();
@@ -2916,6 +3117,107 @@ const App = {
   },
   stat(k) { return (this.A.stats && this.A.stats[k]) || 0; },
   bump(k) { this.A.stats[k] = this.stat(k) + 1; Store.save(); },
+  season() {
+    if (TEST_MODE && this.A.seasonTest) { const t = SEASONS.find(x => x.id === this.A.seasonTest); if (t) return t; }
+    const d = new Date(), md = (d.getMonth() + 1) * 100 + d.getDate();
+    return SEASONS.find(x => x.from <= x.to ? md >= x.from && md <= x.to : md >= x.from || md <= x.to) || SEASONS[0];
+  },
+  seasonDecos() { const s = this.season(); return DECOS.filter(d => d.season === s.id); },
+  hasDeco(id, aid) { return ((this.A.decos || {})[id] || []).includes(aid); },
+  decoVariant(item, aid) {
+    const i = Math.max(0, ANIMALS.findIndex(a => a.id === aid)), c1 = DECO_COLORS[i % DECO_COLORS.length], c2 = DECO_COLORS[(i + 3) % DECO_COLORS.length];
+    if (item.id === "pumpkin") return { name: i % 2 ? "pumpkin2" : "pumpkin", map: {} };
+    if (item.id === "lantern") return { name: "lantern", map: { B: c1, A: "#fff2a8" } };
+    if (item.id === "xtree") return { name: "xtree", map: { B: c1, C: c2 }, outline: true };
+    if (item.id === "presents") return { name: "presents", map: { B: c1, C: c2 } };
+    if (item.id === "lights") return { name: "lightsicon", map: {} };
+    if (item.id === "ghost") return GHOSTS[aid] || { name: "ghost", map: {} };
+    return { name: item.id, map: {} };
+  },
+  decoIcon(item, aid) {
+    const v = this.decoVariant(item, aid), src = Pix.variant(v.name, v.map, v.outline);
+    const c = document.createElement("canvas"); c.width = src.width; c.height = src.height; c.getContext("2d").drawImage(src, 0, 0);
+    c.className = "px-icon"; return c;
+  },
+  paintDeco(el, a) {
+    this.seasonDecos().forEach(item => {
+      if (!this.hasDeco(item.id, a.id)) return;
+      if (item.slot === "fence") return this.paintLights(el, a);
+      const pos = (DECO_SLOT_FIX[a.id] && DECO_SLOT_FIX[a.id][item.slot]) || DECO_SLOTS[item.slot];
+      const v = this.decoVariant(item, a.id);
+      el.appendChild(Pix.elVar(v.name, v.map, v.outline, "deco deco-" + item.id + (item.id === "ghost" ? " g-" + a.id : ""), pos[0], pos[1], 64, 44));
+    });
+  },
+  /* Lichterkette am Zaun: zwei Lampen-Gruppen blinken abwechselnd */
+  paintLights(el, a) {
+    const i = Math.max(0, ANIMALS.findIndex(x => x.id === a.id));
+    const spots = [];
+    for (let x = 3; x <= 60; x += 3) spots.push([x, 3 + (x % 6 === 0 ? 1 : 0)]);
+    for (let x = 3; x <= 24; x += 3) spots.push([x, 38]);
+    for (let x = 39; x <= 60; x += 3) spots.push([x, 38]);
+    const wire = document.createElement("canvas"); wire.width = 64; wire.height = 44; wire.className = "bg";
+    const gw = wire.getContext("2d"); gw.fillStyle = "#2f5a2a";
+    spots.forEach(([x, y], k) => { const nx = spots[k + 1]; if (nx && nx[1] === y || (nx && Math.abs(nx[1] - y) === 1)) { if (nx[0] > x) gw.fillRect(x, y, nx[0] - x, 1); } });
+    el.appendChild(wire);
+    [0, 1].forEach(grp => {
+      const c = document.createElement("canvas"); c.width = 64; c.height = 44; c.className = "bg lights l" + grp;
+      const g = c.getContext("2d");
+      spots.forEach(([x, y], k) => { if (k % 2 !== grp) return; g.fillStyle = DECO_COLORS[(k + i) % DECO_COLORS.length]; g.fillRect(x, y, 1, 2); });
+      el.appendChild(c);
+    });
+  },
+  /* Gratis-Wetter der Jahreszeit */
+  paintWeather(el, big) {
+    const w = this.season().weather; if (!w) return;
+    const cols = { leaves: ["#d9822b", "#c0392b", "#e8b04a", "#8a5a32"], snow: ["#ffffff"], petals: ["#ffb3c8", "#ffffff", "#ffd6e5"],
+      sparkles: ["#fff2a8", "#ffffff"], fluff: ["#ffffff", "#f3f3f3"] }[w];
+    const box = document.createElement("div"); box.className = "weather w-" + w;
+    for (let i = 0; i < (big ? 14 : 7); i++) {
+      const p = document.createElement("i");
+      p.style.left = (Math.random() * 96).toFixed(1) + "%"; p.style.top = (w === "fluff" ? 10 + Math.random() * 70 : -8) + "%";
+      p.style.animationDuration = (3 + Math.random() * 3).toFixed(2) + "s"; p.style.animationDelay = (-Math.random() * 6).toFixed(2) + "s";
+      p.style.background = U.pick(cols);
+      box.appendChild(p);
+    }
+    el.appendChild(box);
+  },
+  decoCard() {
+    const s = this.season(), items = this.seasonDecos(), A = this.A, n = A.unlocked.length;
+    if (!items.length) return `<section class="card"><div class="card-title">🎨 ${s.name}-Deko</div><p class="small">Die Deko für diese Jahreszeit kommt bald.</p></section>`;
+    return `<section class="card"><div class="card-title title-row">🎨 ${s.name}-Deko <span class="pill gold">⭐ ${A.wallet} XP</span></div>
+      <p class="small">Schmück deine Gehege! Jedes Teil kaufst du für ein Gehege. Es bleibt bis ${s.until} stehen und kommt nächstes Jahr wieder.</p>
+      ${items.map(it => { const have = A.unlocked.filter(id => this.hasDeco(it.id, id)).length;
+        return `<div class="food-row"><span class="food-ico" data-decoico="${it.id}"></span>
+          <div class="food-txt"><b>${it.name}</b><span>${have} von ${n} Gehegen</span></div>
+          <button class="buy" data-deco="${it.id}" ${have < n ? "" : "disabled"}>${have < n ? "⭐ " + it.price : "✓"}</button></div>`; }).join("")}
+    </section>`;
+  },
+  buyDecoDialog(id) {
+    const it = DECOS.find(d => d.id === id), A = this.A;
+    this.dialog(`<p class="dlg-title">🎨 ${it.name}</p><p class="dlg-en">${it.en}</p><p>Für welches Gehege? Jedes bekommt seine eigene Farbe.</p>
+      ${A.unlocked.map(aid => { const a = this.animal(aid), has = this.hasDeco(id, aid);
+        return `<div class="food-row"><span class="food-ico" data-decoprev="${aid}"></span>
+          <div class="food-txt"><b>${a.geh}-Gehege</b><span>${has ? "✓ schon geschmückt" : ""}</span></div>
+          ${has ? `<span class="have">✓</span>` : `<button class="buy" data-decobuy="${aid}" ${A.wallet >= it.price ? "" : "disabled"}>⭐ ${it.price}</button>`}</div>`; }).join("")}
+      ${A.wallet < it.price ? `<p class="small">Zu wenig XP? Löse im Shop neue Wörter!</p>` : ""}
+      <button class="btn ghost bi-btn" data-close><span>Schließen</span><em class="en">Close</em></button>`,
+      d => {
+        d.querySelectorAll("[data-decoprev]").forEach(el => el.appendChild(this.decoIcon(it, el.dataset.decoprev)));
+        d.querySelectorAll("[data-decobuy]").forEach(b => b.onclick = () => this.buyDeco(id, b.dataset.decobuy));
+      });
+  },
+  buyDeco(id, aid) {
+    const it = DECOS.find(d => d.id === id), A = this.A;
+    if (A.wallet < it.price || this.hasDeco(id, aid)) return;
+    A.wallet -= it.price; A.decos[id] = (A.decos[id] || []).concat(aid); Store.save(); this.bump("decos");
+    Sound.play("coin"); Confetti.burst(80, "stars");
+    const a = this.animal(aid);
+    this.dialog(`<p class="dlg-title">🎨 Geschmückt!</p><div class="enc-big"><div class="scene big" data-bigscene></div></div>
+      <p>${it.name}: jetzt im ${a.geh}-Gehege.</p><p class="dlg-en">The ${it.en} is now in the ${a.en} enclosure.</p>
+      <button class="btn primary big" data-close>Super!</button>`,
+      d => { this.scene(d.querySelector("[data-bigscene]"), a, true); d.dataset.rerender = "1"; });
+  },
+
   /* Mio-Joker: zählt nur die insgesamt verdienten XP im Hintergrund */
   checkJokers() {
     const A = this.A, earned = Math.floor((Store.data.xp || 0) / JOKER_XP);
@@ -2937,7 +3239,10 @@ const App = {
     const A = this.A;
     if (!(A.jokers > 0) || this.dirt(a.id) === 0 || this.sad(a.id)) return;
     // sofort speichern, die Animation ist nur Anzeige
-    A.jokers--; A.animals[a.id].clean = U.today(); Store.save(); this.bump("jokersUsed"); this.checkZoo();
+    // Mio schenkt genau die XP, die das Putzen gebracht hätte (1 oder 5 pro Aufgabe)
+    const gift = ZOO.CLEAN_TASKS * (this.hasFriend(a.id) ? ENC_XP_TWO.correct : ENC_XP_ONE.correct);
+    A.jokers--; A.animals[a.id].clean = U.today(); Store.save(); this.bump("jokersUsed");
+    Plan.addXP(gift); this.checkZoo();
     d.dataset.rerender = "1";
     const sc = d.querySelector("[data-bigscene]"), row = d.querySelector("[data-cleanrow]");
     row.innerHTML = `<div class="row-txt">🧹 ${this.bi("Mio putzt …", "Mio is cleaning …")}</div>`;
@@ -2952,7 +3257,7 @@ const App = {
       run.remove();
       this.scene(sc, a, true); this.hearts(sc, 5);
       Sound.play("combo"); Confetti.burst(60, "stars");
-      row.innerHTML = `<div class="row-txt">🧹 ${this.bi("Sauber ✨ – danke, Mio!", "Clean – thank you, Mio!")}</div>`;
+      row.innerHTML = `<div class="row-txt">🧹 ${this.bi(`Sauber ✨ – danke, Mio! Mio schenkt dir ${gift} XP.`, `Clean – thank you, Mio! Mio gives you ${gift} XP.`)}</div>`;
       this.toyRow(a, d);
     });
   },
@@ -3162,6 +3467,7 @@ const App = {
     // die Eisrutsche steht fest im Gehege; Ball und Wollknäuel liegen in der Routine mit drin
     if (toy.fixed && (this.played(a.id) || opts.play))
       el.appendChild(Pix.el(toy.sprite, "toy", toy.rest[0], toy.rest[1], 64, 44));
+    this.paintDeco(el, a);
     if (this.sad(a.id) && !opts.play) {
       // traurig: sitzt da und weint
       const spots = [mainPos].concat(friend ? [F.pos] : []);
@@ -3198,6 +3504,7 @@ const App = {
       const E = EVENTS[ev.type];
       el.appendChild(Pix.el(E.sprite, "event", E.pos[0], E.pos[1], 64, 44));
     }
+    this.paintWeather(el, big);
     if (big) { const hz = document.createElement("div"); hz.className = "hearts"; el.appendChild(hz); }
   },
   /* Tagesroutine + Spiel mit dem Spielzeug (solange es heute da ist) */
@@ -3221,6 +3528,7 @@ const App = {
   },
 
   paint(root) {
+    root.querySelectorAll("[data-decoico]").forEach(el => el.appendChild(this.decoIcon(DECOS.find(d => d.id === el.dataset.decoico), "penguin")));
     root.querySelectorAll("[data-troico]").forEach(el => { const tr = TROPHIES.find(x => x.id === el.dataset.troico); el.appendChild(this.trophyEl(tr, !this.A.trophies[tr.id])); });
     root.querySelectorAll("[data-scene]").forEach(el => this.scene(el, this.animal(el.dataset.scene)));
     root.querySelectorAll("[data-icon]").forEach(el => { el.innerHTML = ""; el.appendChild(Pix.icon(el.dataset.icon)); });
@@ -3283,7 +3591,8 @@ const App = {
             <div class="food-txt"><b>${FRIENDS[a.id].name}</b><span>${has ? "✓ wohnt schon im Zoo" : "zieht sofort ein"}</span></div>
             ${has ? `<span class="have">💕</span>` : `<button class="buy" data-buyfriend="${a.id}" ${A.wallet >= FRIEND_PRICE ? "" : "disabled"}>⭐ ${FRIEND_PRICE}</button>`}</div>`;
         }).join("")}
-      </section>`;
+      </section>
+      ${this.decoCard()}`;
   },
 
   settingsView() {
@@ -3306,6 +3615,7 @@ const App = {
         <button class="btn" data-mkevent>⚡ Ereignis auslösen</button>
         <button class="btn" data-addxp>⭐ 200 XP schenken</button>
         <button class="btn" data-addjoker>🦊 Mio-Joker schenken</button>
+        <button class="btn" data-season>🍂 Jahreszeit testen: ${this.A.seasonTest ? this.season().title : "echt (" + this.season().title + ")"}</button>
       </section>` : ""}`;
   },
 
@@ -3322,6 +3632,7 @@ const App = {
     if (pr) pr.onclick = () => this.practice(8, "Great work!", () => {}, true);
     app.querySelectorAll("[data-buy]").forEach(b => b.onclick = () => this.buy(b.dataset.buy, b));
     app.querySelectorAll("[data-buyfriend]").forEach(b => b.onclick = () => this.buyFriend(b.dataset.buyfriend));
+    app.querySelectorAll("[data-deco]").forEach(b => b.onclick = () => this.buyDecoDialog(b.dataset.deco));
     app.querySelectorAll("[data-toggle]").forEach(b => b.onclick = () => { const k = b.dataset.toggle; Store.data.settings[k] = !Store.data.settings[k]; Store.save(); this.render(true); });
     const ts = app.querySelector("[data-testsay]"); if (ts) ts.onclick = () => Speech.say("Hello! Welcome to the zoo!");
     const rs = app.querySelector("[data-reset]");
@@ -3336,6 +3647,8 @@ const App = {
     if (sk) sk.onclick = () => { this.skipDay(); sk.textContent = "✓ Ein Tag vorgespult"; };
     const me = app.querySelector("[data-mkevent]");
     if (me) me.onclick = () => { this.makeEvent(); me.textContent = "✓ Ereignis ist da – schau in den Zoo"; };
+    const se = app.querySelector("[data-season]");
+    if (se) se.onclick = () => { const ids = [null].concat(SEASONS.map(x => x.id)); const k = ids.indexOf(this.A.seasonTest || null); this.A.seasonTest = ids[(k + 1) % ids.length]; Store.save(); this.render(true); };
     const aj = app.querySelector("[data-addjoker]");
     if (aj) aj.onclick = () => { this.A.jokers++; Store.save(); aj.textContent = "✓ Joker geschenkt (" + this.A.jokers + ")"; };
     const ax = app.querySelector("[data-addxp]");
@@ -3410,6 +3723,9 @@ const App = {
           : this.bbtn("data-clean", `Putzen · ${ZOO.CLEAN_TASKS} Aufgaben`, `Clean · ${ZOO.CLEAN_TASKS} tasks`)
             + (A.jokers > 0 ? this.bbtn("data-joker", `🦊 Mio hilft · Joker (${A.jokers})`, `Mio helps · joker (${A.jokers})`, "joker") : "")}</div>
       <div class="row" data-toyrow></div>
+      ${this.seasonDecos().length ? (() => { const s = this.season(), items = this.seasonDecos(), c = items.filter(it => this.hasDeco(it.id, id)).length;
+        return `<div class="row"><div class="row-txt">🎨 ${this.bi(`${s.name}-Deko: ${c} von ${items.length}`, `${s.en[0].toUpperCase() + s.en.slice(1)} decorations: ${c} of ${items.length}`)}</div>
+          ${c < items.length ? this.bbtn("data-todeco", "Im Shop schmücken", "Decorate in the shop", "") : ""}</div>`; })() : ""}
       <button class="btn ghost bi-btn" data-close><span>Schließen</span><em class="en">Close</em></button>`);
     this.toyRow(a, d);
     const sc = d.querySelector("[data-bigscene]");
@@ -3419,6 +3735,8 @@ const App = {
     if (fb) fb.onclick = () => this.feed(a, d);
     const ts = d.querySelector(".row:not([data-toyrow]) [data-toshop]");
     if (ts) ts.onclick = () => { d.hidden = true; this.view = "shop"; this.render(); };
+    const td = d.querySelector("[data-todeco]");
+    if (td) td.onclick = () => { d.hidden = true; this.view = "shop"; this.render(); const c = document.querySelectorAll(".card"); if (c.length) c[c.length - 1].scrollIntoView(); };
     const jb = d.querySelector("[data-joker]");
     if (jb) jb.onclick = () => this.useJoker(a, d);
     const cb = d.querySelector("[data-clean]");
