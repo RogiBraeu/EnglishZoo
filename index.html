@@ -248,6 +248,9 @@ body.in-lesson .pwa-banner { display: none; }
 
 .ver { font-size: 15px; font-weight: 700; color: var(--muted); margin-left: 6px; font-family: var(--font); }
 
+/* zweite Zeile im Button (z. B. Buchseite des Päckchens) */
+.btn .btn-sub { display: block; font-size: 16px; font-weight: 700; opacity: .85; margin-top: 2px; }
+
 body { background: var(--bg) repeating-linear-gradient(0deg, transparent 0 22px, rgba(139,90,43,.05) 22px 24px); }
 .wrap { padding-bottom: calc(110px + env(safe-area-inset-bottom)); }
 .btn { border: 3px solid var(--wood-dark); box-shadow: 0 4px 0 var(--wood-dark); font-family: var(--pixel); font-weight: 700; letter-spacing: .3px; }
@@ -443,108 +446,270 @@ body.in-lesson .bottom-nav { display: none; }
 .buy:disabled { background: #cbbd9f; border-color: #9c8b6c; box-shadow: 0 4px 0 #9c8b6c; color: #f6efe2; }
 .buy:active:not(:disabled) { transform: translateY(3px); box-shadow: 0 1px 0 #2E5A18; }
 .wallet-note { margin-top: 16px; background: #FFF1BF; border: 3px solid var(--line); border-radius: 8px; padding: 10px; font-weight: 700; }
+
+/* Päckchen-Übersicht im Shop */
+.pk-list { margin-top: 12px; border-top: 2px dashed rgba(0,0,0,.12); padding-top: 8px; }
+.pk-list summary { cursor: pointer; font-weight: 800; font-size: 17px; padding: 6px 0; list-style: none; }
+.pk-list summary::-webkit-details-marker { display: none; }
+.pk-list summary::after { content: " ▾"; }
+.pk-list[open] summary::after { content: " ▴"; }
+.pk-row { display: flex; align-items: center; gap: 10px; padding: 7px 4px; font-size: 17px; border-bottom: 1px solid rgba(0,0,0,.06); }
+.pk-row.locked { opacity: .5; }
+.pk-row .pk-name { flex: 1; }
+.pk-row .pk-n { font-weight: 800; opacity: .7; }
 </style>
 </head>
 <body>
 <div class="wrap" id="app"></div>
 <div id="lesson" hidden></div>
 <script>
-const APP_VERSION = "1.17";
+const APP_VERSION = "1.19";
+const TEST_TOOLS = true;
 /* =====================================================================
-   VOKABELN
+   VOKABELN – Access 1, Unit 1 (Seite 18 bis 39)
    ---------------------------------------------------------------------
-   ACHTUNG: Das hier sind nur TESTWÖRTER, um den Ablauf auszuprobieren.
-   Sie werden später durch die echte Liste aus "Access" ersetzt.
-
+   Automatisch erzeugt aus der Vokabel-Tabelle (tools/xlsx2vocab.py).
    Format pro Wort:
-     en      Englisch (genau so, wie es geschrieben werden soll)
-     de      Deutsch (mehrere Bedeutungen mit " / " trennen)
-     ex      Beispielsätze: { en, de, src }  src = "buch" oder "claude"
-     mark    knifflige Stelle in [eckigen Klammern], z. B. "fr[ie]nd"
-     hint    kleine Merkhilfe (optional)
-     problem true = von der Lehrerin als Problemwort markiert
+     en   Englisch wie im Buch, z. B. "(to) know" oder "before school/lessons"
+     de   Deutsch
+     pg   Seite im Buch,  pk  Päckchen (Name wird im Shop angezeigt)
+     ex   Beispielsätze { en, de, src }  src = "buch" oder "claude"
+   Wort-IDs = Set-ID + ":" + en  ->  Schreibweise und Set-ID nicht mehr ändern,
+   sonst geht der Lernstand dieses Worts verloren.
    ===================================================================== */
 const VOCAB_SETS = [
   {
-    id: "test-a",
-    title: "Test-Unit, Teil A",
-    unit: "Test",
+    id: "u1",
+    title: "Unit 1",
+    unit: "Unit 1",
     words: [
-      { en: "friend", de: "Freund / Freundin", mark: "fr[ie]nd", hint: "a fr-IE-nd until the end", problem: true,
-        ex: [ { en: "My friend is nice.", de: "Mein Freund ist nett.", src: "claude" },
-              { en: "Tom is my best friend.", de: "Tom ist mein bester Freund.", src: "claude" } ] },
-      { en: "because", de: "weil", mark: "bec[au]se", hint: "Big Elephants Can Always Understand Small Elephants", problem: true,
-        ex: [ { en: "I'm happy because it's Friday.", de: "Ich bin froh, weil Freitag ist.", src: "claude" },
-              { en: "I can't come because I'm ill.", de: "Ich kann nicht kommen, weil ich krank bin.", src: "claude" } ] },
-      { en: "school", de: "Schule", mark: "s[ch]ool",
-        ex: [ { en: "I go to school by bus.", de: "Ich fahre mit dem Bus zur Schule.", src: "claude" },
-              { en: "Our school is big.", de: "Unsere Schule ist groß.", src: "claude" } ] },
-      { en: "teacher", de: "Lehrer / Lehrerin", mark: "t[ea]cher",
-        ex: [ { en: "Our teacher is from London.", de: "Unsere Lehrerin kommt aus London.", src: "claude" },
-              { en: "The teacher has a red pen.", de: "Der Lehrer hat einen roten Stift.", src: "claude" } ] },
-      { en: "February", de: "Februar", mark: "Feb[r]uary", hint: "Feb-RU-ary: Das r nach dem b nicht vergessen!", problem: true,
-        ex: [ { en: "My birthday is in February.", de: "Mein Geburtstag ist im Februar.", src: "claude" },
-              { en: "February is cold.", de: "Der Februar ist kalt.", src: "claude" } ] },
-      { en: "family", de: "Familie", mark: "fam[i]ly",
-        ex: [ { en: "My family is big.", de: "Meine Familie ist groß.", src: "claude" },
-              { en: "I love my family.", de: "Ich liebe meine Familie.", src: "claude" } ] },
-      { en: "pencil", de: "Bleistift", mark: "penc[i]l",
-        ex: [ { en: "Can I have a pencil, please?", de: "Kann ich bitte einen Bleistift haben?", src: "claude" },
-              { en: "My pencil is green.", de: "Mein Bleistift ist grün.", src: "claude" } ] },
-      { en: "brother", de: "Bruder", mark: "br[o]ther",
-        ex: [ { en: "My brother is ten.", de: "Mein Bruder ist zehn.", src: "claude" },
-              { en: "I have one brother.", de: "Ich habe einen Bruder.", src: "claude" } ] },
-      { en: "sister", de: "Schwester",
-        ex: [ { en: "My sister likes cats.", de: "Meine Schwester mag Katzen.", src: "claude" },
-              { en: "Her sister is twelve.", de: "Ihre Schwester ist zwölf.", src: "claude" } ] },
-      { en: "dog", de: "Hund",
-        ex: [ { en: "The dog is in the garden.", de: "Der Hund ist im Garten.", src: "claude" },
-              { en: "I have a little dog.", de: "Ich habe einen kleinen Hund.", src: "claude" } ] },
-      { en: "apple", de: "Apfel", mark: "a[pp]le",
-        ex: [ { en: "I eat an apple.", de: "Ich esse einen Apfel.", src: "claude" },
-              { en: "The apple is red.", de: "Der Apfel ist rot.", src: "claude" } ] },
-      { en: "house", de: "Haus", mark: "h[ou]se",
-        ex: [ { en: "Our house is old.", de: "Unser Haus ist alt.", src: "claude" },
-              { en: "The house has a red door.", de: "Das Haus hat eine rote Tür.", src: "claude" } ] }
-    ]
-  },
-  {
-    id: "test-b",
-    title: "Test-Unit, Teil B",
-    unit: "Test",
-    words: [
-      { en: "Wednesday", de: "Mittwoch", mark: "We[d]nesday", hint: "Wed-nes-day: Sprich es in Gedanken so, wie man es schreibt.", problem: true,
-        ex: [ { en: "We have English on Wednesday.", de: "Wir haben am Mittwoch Englisch.", src: "claude" },
-              { en: "Wednesday is my favourite day.", de: "Mittwoch ist mein Lieblingstag.", src: "claude" } ] },
-      { en: "beautiful", de: "schön", mark: "b[eau]tiful",
-        ex: [ { en: "The garden is beautiful.", de: "Der Garten ist schön.", src: "claude" },
-              { en: "What a beautiful day!", de: "Was für ein schöner Tag!", src: "claude" } ] },
-      { en: "bag", de: "Tasche",
-        ex: [ { en: "My bag is blue.", de: "Meine Tasche ist blau.", src: "claude" },
-              { en: "The book is in my bag.", de: "Das Buch ist in meiner Tasche.", src: "claude" } ] },
-      { en: "cat", de: "Katze",
-        ex: [ { en: "The cat is black.", de: "Die Katze ist schwarz.", src: "claude" },
-              { en: "My cat likes milk.", de: "Meine Katze mag Milch.", src: "claude" } ] },
-      { en: "green", de: "grün", mark: "gr[ee]n",
-        ex: [ { en: "The tree is green.", de: "Der Baum ist grün.", src: "claude" },
-              { en: "I have a green bike.", de: "Ich habe ein grünes Fahrrad.", src: "claude" } ] },
-      { en: "window", de: "Fenster", mark: "wind[ow]",
-        ex: [ { en: "Open the window, please.", de: "Öffne bitte das Fenster.", src: "claude" },
-              { en: "The cat sits at the window.", de: "Die Katze sitzt am Fenster.", src: "claude" } ] },
-      { en: "breakfast", de: "Frühstück", mark: "br[ea]kfast",
-        ex: [ { en: "I have breakfast at seven.", de: "Ich frühstücke um sieben.", src: "claude" },
-              { en: "Breakfast is ready.", de: "Das Frühstück ist fertig.", src: "claude" } ] },
-      { en: "cousin", de: "Cousin / Cousine", mark: "c[ou]sin",
-        ex: [ { en: "My cousin lives in Berlin.", de: "Mein Cousin wohnt in Berlin.", src: "claude" },
-              { en: "Anna is my cousin.", de: "Anna ist meine Cousine.", src: "claude" } ] },
-      { en: "hello", de: "hallo", mark: "he[ll]o",
-        ex: [ { en: "Hello, I'm Sam.", de: "Hallo, ich bin Sam.", src: "claude" } ] },
-      { en: "table", de: "Tisch",
-        ex: [ { en: "The pencil is on the table.", de: "Der Bleistift liegt auf dem Tisch.", src: "claude" },
-              { en: "We sit at the table.", de: "Wir sitzen am Tisch.", src: "claude" } ] }
+      {"en": "the first day", "de": "der erste Tag", "pg": 18, "ex": [{"en": "Today is the first day of school.", "de": "Heute ist der erste Schultag.", "src": "claude"}, {"en": "How was the first day, Sam?", "de": "Wie war der erste Tag, Sam?", "src": "claude"}, {"en": "Lily is happy on the first day.", "de": "Lily ist am ersten Tag glücklich.", "src": "claude"}, {"en": "The first day is on Monday.", "de": "Der erste Tag ist am Montag.", "src": "claude"}], "pk": "Seite 18 · Päckchen 1 von 5"},
+      {"en": "at school", "de": "in der Schule", "pg": 18, "ex": [{"en": "Maya is at school.", "de": "Maya ist in der Schule.", "src": "claude"}, {"en": "I am at school from eight to one.", "de": "Ich bin von acht bis eins in der Schule.", "src": "claude"}, {"en": "Are you at school now?", "de": "Bist du jetzt in der Schule?", "src": "claude"}, {"en": "My brother is not at school today.", "de": "Mein Bruder ist heute nicht in der Schule.", "src": "claude"}], "pk": "Seite 18 · Päckchen 1 von 5"},
+      {"en": "before school/lessons", "de": "vor der Schule (vor Schulbeginn) / vorm Unterricht", "pg": 18, "ex": [{"en": "I meet my friends before school.", "de": "Ich treffe meine Freunde vor der Schule.", "src": "claude"}, {"en": "Sam plays football before lessons.", "de": "Sam spielt vor dem Unterricht Fußball.", "src": "claude"}, {"en": "Is the teacher here before school?", "de": "Ist der Lehrer vor der Schule hier?", "src": "claude"}, {"en": "We say hello before lessons.", "de": "Wir sagen vor dem Unterricht Hallo.", "src": "claude"}], "pk": "Seite 18 · Päckchen 1 von 5"},
+      {"en": "her best friend", "de": "ihr bester Freund / ihre beste Freundin", "pg": 18, "ex": [{"en": "Maya is her best friend.", "de": "Maya ist ihre beste Freundin.", "src": "claude"}, {"en": "Lucy is her best friend at school.", "de": "Lucy ist ihre beste Freundin in der Schule.", "src": "claude"}, {"en": "This is her best friend, Lily.", "de": "Das ist ihre beste Freundin, Lily.", "src": "claude"}, {"en": "She talks to her best friend after school.", "de": "Sie spricht nach der Schule mit ihrer besten Freundin.", "src": "claude"}], "pk": "Seite 18 · Päckchen 1 von 5"},
+      {"en": "they're ...", "de": "sie sind ...", "pg": 18, "ex": [{"en": "They're at Maya's flat.", "de": "Sie sind in Mayas Wohnung.", "src": "buch"}, {"en": "They're my friends.", "de": "Sie sind meine Freunde.", "src": "claude"}, {"en": "They're in the classroom.", "de": "Sie sind im Klassenzimmer.", "src": "claude"}, {"en": "They're happy today.", "de": "Sie sind heute glücklich.", "src": "claude"}], "pk": "Seite 18 · Päckchen 1 von 5"},
+      {"en": "flat", "de": "Wohnung", "pg": 18, "ex": [{"en": "Maya's flat is nice.", "de": "Mayas Wohnung ist schön.", "src": "claude"}, {"en": "We live in a small flat.", "de": "Wir wohnen in einer kleinen Wohnung.", "src": "claude"}, {"en": "My friend has a flat in Plymouth.", "de": "Mein Freund hat eine Wohnung in Plymouth.", "src": "claude"}, {"en": "Is your flat big or small?", "de": "Ist deine Wohnung groß oder klein?", "src": "claude"}], "pk": "Seite 18 · Päckchen 1 von 5"},
+      {"en": "their first day", "de": "ihr erster Tag", "pg": 18, "ex": [{"en": "It is their first day at school.", "de": "Es ist ihr erster Schultag.", "src": "claude"}, {"en": "The boys are new. It is their first day.", "de": "Die Jungen sind neu. Es ist ihr erster Tag.", "src": "claude"}, {"en": "Is it their first day today?", "de": "Ist heute ihr erster Tag?", "src": "claude"}, {"en": "Monday is their first day.", "de": "Montag ist ihr erster Tag.", "src": "claude"}], "pk": "Seite 18 · Päckchen 1 von 5"},
+      {"en": "uniform", "de": "(Schul-)Uniform", "pg": 18, "ex": [{"en": "I wear a blue uniform.", "de": "Ich trage eine blaue Uniform.", "src": "claude"}, {"en": "The school uniform is dark blue.", "de": "Die Schuluniform ist dunkelblau.", "src": "claude"}, {"en": "Is your uniform new?", "de": "Ist deine Uniform neu?", "src": "claude"}, {"en": "Lucy has a uniform at her school.", "de": "Lucy hat an ihrer Schule eine Uniform.", "src": "claude"}], "pk": "Seite 18 · Päckchen 1 von 5"},
+      {"en": "nice", "de": "nett, schön", "pg": 18, "ex": [{"en": "Your teacher is nice.", "de": "Dein Lehrer ist nett.", "src": "claude"}, {"en": "It's a nice day today.", "de": "Heute ist ein schöner Tag.", "src": "claude"}, {"en": "Sam is a nice boy.", "de": "Sam ist ein netter Junge.", "src": "claude"}, {"en": "What a nice flat!", "de": "Was für eine schöne Wohnung!", "src": "claude"}], "pk": "Seite 18 · Päckchen 2 von 5"},
+      {"en": "(to) know", "de": "wissen; kennen", "pg": 18, "ex": [{"en": "I know the answer.", "de": "Ich weiß die Antwort.", "src": "claude"}, {"en": "Do you know Maya?", "de": "Kennst du Maya?", "src": "claude"}, {"en": "We know the teacher.", "de": "Wir kennen den Lehrer.", "src": "claude"}, {"en": "I know the date.", "de": "Ich weiß das Datum.", "src": "claude"}], "pk": "Seite 18 · Päckchen 2 von 5"},
+      {"en": "brother", "de": "Bruder", "pg": 18, "ex": [{"en": "I have one brother.", "de": "Ich habe einen Bruder.", "src": "claude"}, {"en": "My brother is nine.", "de": "Mein Bruder ist neun.", "src": "claude"}, {"en": "Her brother plays football.", "de": "Ihr Bruder spielt Fußball.", "src": "claude"}, {"en": "Is that your brother?", "de": "Ist das dein Bruder?", "src": "claude"}], "pk": "Seite 18 · Päckchen 2 von 5"},
+      {"en": "sister", "de": "Schwester", "pg": 18, "ex": [{"en": "I have two sisters.", "de": "Ich habe zwei Schwestern.", "src": "claude"}, {"en": "My sister is Lily.", "de": "Meine Schwester heißt Lily.", "src": "claude"}, {"en": "His sister likes music.", "de": "Seine Schwester mag Musik.", "src": "claude"}, {"en": "Is this your sister?", "de": "Ist das deine Schwester?", "src": "claude"}], "pk": "Seite 18 · Päckchen 2 von 5"},
+      {"en": "student", "de": "Schüler/in; Student/in", "pg": 18, "ex": [{"en": "Maya is a student.", "de": "Maya ist eine Schülerin.", "src": "claude"}, {"en": "Every student has a book.", "de": "Jeder Schüler hat ein Buch.", "src": "claude"}, {"en": "The new student is nice.", "de": "Der neue Schüler ist nett.", "src": "claude"}, {"en": "I'm a student at a big school.", "de": "Ich bin Schüler an einer großen Schule.", "src": "claude"}], "pk": "Seite 18 · Päckchen 2 von 5"},
+      {"en": "he/she/it isn't ...", "de": "er/sie/es ist nicht ...; er/sie/es ist kein/e ...", "pg": 18, "ex": [{"en": "Maya isn't at Plymstock School.", "de": "Maya ist nicht an der Plymstock School.", "src": "buch"}, {"en": "And she isn't a teacher – she's a student.", "de": "Und sie ist keine Lehrerin – sie ist Schülerin.", "src": "buch"}, {"en": "He isn't late.", "de": "Er ist nicht zu spät.", "src": "claude"}, {"en": "It isn't a big flat.", "de": "Es ist keine große Wohnung.", "src": "claude"}], "pk": "Seite 18 · Päckchen 2 von 5"},
+      {"en": "his mum", "de": "seine Mama", "pg": 18, "ex": [{"en": "His mum is a teacher.", "de": "Seine Mama ist Lehrerin.", "src": "claude"}, {"en": "His mum is nice.", "de": "Seine Mama ist nett.", "src": "claude"}, {"en": "Is his mum at home?", "de": "Ist seine Mama zu Hause?", "src": "claude"}, {"en": "Max helps his mum.", "de": "Max hilft seiner Mama.", "src": "claude"}], "pk": "Seite 18 · Päckchen 2 von 5"},
+      {"en": "mum", "de": "Mama, Mutti", "pg": 18, "ex": [{"en": "My mum is at home.", "de": "Meine Mama ist zu Hause.", "src": "claude"}, {"en": "Mum, can you help me?", "de": "Mama, kannst du mir helfen?", "src": "claude"}, {"en": "Lily's mum is a teacher.", "de": "Lilys Mama ist Lehrerin.", "src": "claude"}, {"en": "I like my mum.", "de": "Ich mag meine Mama.", "src": "claude"}], "pk": "Seite 18 · Päckchen 2 von 5"},
+      {"en": "mother", "de": "Mutter", "pg": 18, "ex": [{"en": "My mother is a teacher.", "de": "Meine Mutter ist Lehrerin.", "src": "claude"}, {"en": "Her mother is nice.", "de": "Ihre Mutter ist nett.", "src": "claude"}, {"en": "Is that your mother?", "de": "Ist das deine Mutter?", "src": "claude"}, {"en": "Sam's mother is at home.", "de": "Sams Mutter ist zu Hause.", "src": "claude"}], "pk": "Seite 18 · Päckchen 3 von 5"},
+      {"en": "dad", "de": "Papa, Vati", "pg": 18, "ex": [{"en": "My dad is at work.", "de": "Mein Papa ist bei der Arbeit.", "src": "claude"}, {"en": "Dad, can I play football?", "de": "Papa, darf ich Fußball spielen?", "src": "claude"}, {"en": "Where is your dad?", "de": "Wo ist dein Papa?", "src": "claude"}, {"en": "His dad is nice.", "de": "Sein Papa ist nett.", "src": "claude"}], "pk": "Seite 18 · Päckchen 3 von 5"},
+      {"en": "father", "de": "Vater", "pg": 18, "ex": [{"en": "My father is forty.", "de": "Mein Vater ist vierzig.", "src": "claude"}, {"en": "His father is a teacher.", "de": "Sein Vater ist Lehrer.", "src": "claude"}, {"en": "Is your father at home?", "de": "Ist dein Vater zu Hause?", "src": "claude"}, {"en": "Lily's father is at work.", "de": "Lilys Vater ist bei der Arbeit.", "src": "claude"}], "pk": "Seite 18 · Päckchen 3 von 5"},
+      {"en": "navy", "de": "Marine(blau)", "pg": 18, "ex": [{"en": "The uniform is navy.", "de": "Die Uniform ist marineblau.", "src": "claude"}, {"en": "Navy is a dark blue.", "de": "Marineblau ist ein dunkles Blau.", "src": "claude"}, {"en": "My shoes are navy.", "de": "Meine Schuhe sind marineblau.", "src": "claude"}, {"en": "Is your uniform navy?", "de": "Ist deine Uniform marineblau?", "src": "claude"}], "pk": "Seite 18 · Päckchen 3 von 5"},
+      {"en": "dark", "de": "dunkel", "pg": 18, "ex": [{"en": "The room is dark.", "de": "Das Zimmer ist dunkel.", "src": "claude"}, {"en": "It is dark at night.", "de": "Nachts ist es dunkel.", "src": "claude"}, {"en": "Is your uniform dark blue?", "de": "Ist deine Uniform dunkelblau?", "src": "claude"}, {"en": "Dark blue is my colour.", "de": "Dunkelblau ist meine Farbe.", "src": "claude"}], "pk": "Seite 18 · Päckchen 3 von 5"},
+      {"en": "Thank you.", "de": "Danke.", "pg": 18, "ex": [{"en": "Thank you, Miss Bell.", "de": "Danke, Frau Bell.", "src": "claude"}, {"en": "Thank you very much.", "de": "Vielen Dank.", "src": "claude"}, {"en": "\"Can I help you?\" – \"Thank you.\"", "de": "„Kann ich dir helfen?“ – „Danke.“", "src": "claude"}, {"en": "Thank you for your help.", "de": "Danke für deine Hilfe.", "src": "claude"}], "pk": "Seite 18 · Päckchen 3 von 5"},
+      {"en": "thirteen", "de": "13", "pg": 18, "ex": [{"en": "There are thirteen students here.", "de": "Hier sind dreizehn Schüler.", "src": "claude"}, {"en": "My sister is thirteen.", "de": "Meine Schwester ist dreizehn.", "src": "claude"}, {"en": "Look at page thirteen.", "de": "Schau auf Seite dreizehn.", "src": "claude"}, {"en": "Bus thirteen is late.", "de": "Bus dreizehn ist zu spät.", "src": "claude"}], "pk": "Seite 18 · Päckchen 3 von 5"},
+      {"en": "fourteen", "de": "14", "pg": 18, "ex": [{"en": "Maya's brother is fourteen.", "de": "Mayas Bruder ist vierzehn.", "src": "claude"}, {"en": "I have fourteen books.", "de": "Ich habe vierzehn Bücher.", "src": "claude"}, {"en": "Count to fourteen.", "de": "Zähle bis vierzehn.", "src": "claude"}, {"en": "There are fourteen students in the gym.", "de": "In der Turnhalle sind vierzehn Schüler.", "src": "claude"}], "pk": "Seite 18 · Päckchen 3 von 5"},
+      {"en": "fifteen", "de": "15", "pg": 18, "ex": [{"en": "The break is fifteen minutes long.", "de": "Die Pause ist fünfzehn Minuten lang.", "src": "claude"}, {"en": "Wait fifteen minutes.", "de": "Warte fünfzehn Minuten.", "src": "claude"}, {"en": "Page fifteen is easy.", "de": "Seite fünfzehn ist leicht.", "src": "claude"}, {"en": "There are fifteen boys here.", "de": "Hier sind fünfzehn Jungen.", "src": "claude"}], "pk": "Seite 18 · Päckchen 4 von 5"},
+      {"en": "sixteen", "de": "16", "pg": 18, "ex": [{"en": "My brother is sixteen.", "de": "Mein Bruder ist sechzehn.", "src": "claude"}, {"en": "Open your book at page sixteen.", "de": "Schlagt euer Buch auf Seite sechzehn auf.", "src": "claude"}, {"en": "Sixteen students are here.", "de": "Sechzehn Schüler sind hier.", "src": "claude"}, {"en": "Count to sixteen.", "de": "Zähle bis sechzehn.", "src": "claude"}], "pk": "Seite 18 · Päckchen 4 von 5"},
+      {"en": "seventeen", "de": "17", "pg": 18, "ex": [{"en": "Seventeen students are in the library.", "de": "Siebzehn Schüler sind in der Bücherei.", "src": "claude"}, {"en": "Her sister is seventeen.", "de": "Ihre Schwester ist siebzehn.", "src": "claude"}, {"en": "Look at question seventeen.", "de": "Schau dir Frage siebzehn an.", "src": "claude"}, {"en": "Count to seventeen.", "de": "Zähle bis siebzehn.", "src": "claude"}], "pk": "Seite 18 · Päckchen 4 von 5"},
+      {"en": "eighteen", "de": "18", "pg": 18, "ex": [{"en": "Sam's brother is eighteen.", "de": "Sams Bruder ist achtzehn.", "src": "claude"}, {"en": "There are eighteen boys here.", "de": "Hier sind achtzehn Jungen.", "src": "claude"}, {"en": "Look at page eighteen.", "de": "Schau auf Seite achtzehn.", "src": "claude"}, {"en": "Count to eighteen.", "de": "Zähle bis achtzehn.", "src": "claude"}], "pk": "Seite 18 · Päckchen 4 von 5"},
+      {"en": "nineteen", "de": "19", "pg": 18, "ex": [{"en": "Nineteen students are here.", "de": "Neunzehn Schüler sind hier.", "src": "claude"}, {"en": "Lily's sister is nineteen.", "de": "Lilys Schwester ist neunzehn.", "src": "claude"}, {"en": "Look at page nineteen.", "de": "Schau auf Seite neunzehn.", "src": "claude"}, {"en": "Write nineteen in your book.", "de": "Schreib neunzehn in dein Heft.", "src": "claude"}], "pk": "Seite 18 · Päckchen 4 von 5"},
+      {"en": "twenty", "de": "20", "pg": 18, "ex": [{"en": "There are twenty students in my class.", "de": "In meiner Klasse sind zwanzig Schüler.", "src": "claude"}, {"en": "The break is twenty minutes long.", "de": "Die Pause ist zwanzig Minuten lang.", "src": "claude"}, {"en": "Count to twenty.", "de": "Zähle bis zwanzig.", "src": "claude"}, {"en": "Twenty students are here.", "de": "Zwanzig Schüler sind hier.", "src": "claude"}], "pk": "Seite 18 · Päckchen 4 von 5"},
+      {"en": "with", "de": "mit", "pg": 18, "ex": [{"en": "Justin is in the classroom with his teacher.", "de": "Justin ist mit seinem Lehrer im Klassenzimmer.", "src": "buch"}, {"en": "I play football with my friends.", "de": "Ich spiele mit meinen Freunden Fußball.", "src": "claude"}, {"en": "I like bread with cheese.", "de": "Ich mag Brot mit Käse.", "src": "claude"}, {"en": "Maya plays with a ball.", "de": "Maya spielt mit einem Ball.", "src": "claude"}], "pk": "Seite 18 · Päckchen 4 von 5"},
+      {"en": "without", "de": "ohne", "pg": 18, "ex": [{"en": "I can't write without a pen.", "de": "Ohne Stift kann ich nicht schreiben.", "src": "claude"}, {"en": "Don't go without me.", "de": "Geh nicht ohne mich.", "src": "claude"}, {"en": "Sam is at school without his bag.", "de": "Sam ist ohne seine Tasche in der Schule.", "src": "claude"}, {"en": "A day without friends is sad.", "de": "Ein Tag ohne Freunde ist traurig.", "src": "claude"}], "pk": "Seite 18 · Päckchen 4 von 5"},
+      {"en": "please", "de": "bitte", "pg": 18, "ex": [{"en": "Can you open the window, please?", "de": "Kannst du bitte das Fenster öffnen?", "src": "buch"}, {"en": "Please help me.", "de": "Bitte hilf mir.", "src": "claude"}, {"en": "Sit down, please.", "de": "Setz dich bitte.", "src": "claude"}, {"en": "Two books, please.", "de": "Zwei Bücher, bitte.", "src": "claude"}], "pk": "Seite 18 · Päckchen 5 von 5"},
+      {"en": "You're late.", "de": "Du bist spät dran. / Du bist zu spät.", "pg": 18, "ex": [{"en": "You're late, Sam!", "de": "Du bist zu spät, Sam!", "src": "claude"}, {"en": "You're late for the bus.", "de": "Du bist zu spät für den Bus.", "src": "claude"}, {"en": "You're late, but that's OK.", "de": "Du bist zu spät, aber das ist okay.", "src": "claude"}, {"en": "Sorry, you're late for school.", "de": "Tut mir leid, du bist zu spät zur Schule.", "src": "claude"}], "pk": "Seite 18 · Päckchen 5 von 5"},
+      {"en": "(to) wait (for)", "de": "warten (auf)", "pg": 18, "ex": [{"en": "Wait for me, please.", "de": "Warte bitte auf mich.", "src": "claude"}, {"en": "I wait for the bus.", "de": "Ich warte auf den Bus.", "src": "claude"}, {"en": "We wait for the teacher.", "de": "Wir warten auf den Lehrer.", "src": "claude"}, {"en": "Can you wait here?", "de": "Kannst du hier warten?", "src": "claude"}], "pk": "Seite 18 · Päckchen 5 von 5"},
+      {"en": "minute", "de": "Minute", "pg": 18, "ex": [{"en": "Wait a minute, please.", "de": "Warte bitte eine Minute.", "src": "claude"}, {"en": "One minute, please.", "de": "Eine Minute, bitte.", "src": "claude"}, {"en": "It takes one minute to walk to school.", "de": "Ich brauche eine Minute zu Fuß zur Schule.", "src": "claude"}, {"en": "I'm ready in a minute.", "de": "Ich bin in einer Minute fertig.", "src": "claude"}], "pk": "Seite 18 · Päckchen 5 von 5"},
+      {"en": "What time is it?", "de": "Wie spät ist es?", "pg": 18, "ex": [{"en": "What time is it, Mum?", "de": "Wie spät ist es, Mama?", "src": "claude"}, {"en": "Excuse me, what time is it?", "de": "Entschuldigung, wie spät ist es?", "src": "claude"}, {"en": "What time is it? It's eight o'clock.", "de": "Wie spät ist es? Es ist acht Uhr.", "src": "claude"}, {"en": "Look at the clock: what time is it?", "de": "Schau auf die Uhr: Wie spät ist es?", "src": "claude"}], "pk": "Seite 18 · Päckchen 5 von 5"},
+      {"en": "time", "de": "Zeit; Uhrzeit", "pg": 18, "ex": [{"en": "It's time for school.", "de": "Es ist Zeit für die Schule.", "src": "claude"}, {"en": "It's time to go home.", "de": "Es ist Zeit, nach Hause zu gehen.", "src": "claude"}, {"en": "Do you have time?", "de": "Hast du Zeit?", "src": "claude"}, {"en": "Is it time for lunch?", "de": "Ist es Zeit fürs Mittagessen?", "src": "claude"}], "pk": "Seite 18 · Päckchen 5 von 5"},
+      {"en": "See you.", "de": "Bis gleich. / Bis bald.", "pg": 18, "ex": [{"en": "Bye! See you!", "de": "Tschüs! Bis bald!", "src": "claude"}, {"en": "See you at school, Sam.", "de": "Bis bald in der Schule, Sam.", "src": "claude"}, {"en": "See you on Monday.", "de": "Bis Montag.", "src": "claude"}, {"en": "See you after lunch.", "de": "Bis nach dem Mittagessen.", "src": "claude"}], "pk": "Seite 18 · Päckchen 5 von 5"},
+      {"en": "profile", "de": "Profil; Beschreibung, Porträt", "pg": 19, "ex": [{"en": "This is my profile.", "de": "Das ist mein Steckbrief.", "src": "claude"}, {"en": "Read Maya's profile.", "de": "Lies Mayas Steckbrief.", "src": "claude"}, {"en": "Write a profile about your best friend.", "de": "Schreib einen Steckbrief über deinen besten Freund.", "src": "claude"}, {"en": "Lily's profile is short.", "de": "Lilys Steckbrief ist kurz.", "src": "claude"}], "pk": "Seite 19–20 · Päckchen 1 von 2"},
+      {"en": "library", "de": "Bibliothek, Bücherei", "pg": 19, "ex": [{"en": "I like the library.", "de": "Ich mag die Bücherei.", "src": "claude"}, {"en": "There are books in the library.", "de": "In der Bücherei gibt es Bücher.", "src": "claude"}, {"en": "We read in the school library.", "de": "Wir lesen in der Schulbücherei.", "src": "claude"}, {"en": "My mum works in the library.", "de": "Meine Mama arbeitet in der Bücherei.", "src": "claude"}], "pk": "Seite 19–20 · Päckchen 1 von 2"},
+      {"en": "home", "de": "Heim, Zuhause", "pg": 19, "ex": [{"en": "Maya is at home.", "de": "Maya ist zu Hause.", "src": "buch"}, {"en": "Let's go home.", "de": "Lass uns nach Hause gehen.", "src": "buch"}, {"en": "Sam, come home.", "de": "Sam, komm nach Hause.", "src": "buch"}, {"en": "My dad is at home now.", "de": "Mein Papa ist jetzt zu Hause.", "src": "claude"}], "pk": "Seite 19–20 · Päckchen 1 von 2"},
+      {"en": "on the way to ...", "de": "auf dem Weg zu/nach ...", "pg": 20, "ex": [{"en": "I'm on the way to school.", "de": "Ich bin auf dem Weg zur Schule.", "src": "claude"}, {"en": "Sam is on the way to the library.", "de": "Sam ist auf dem Weg zur Bücherei.", "src": "claude"}, {"en": "We are on the way to the gym.", "de": "Wir sind auf dem Weg zur Turnhalle.", "src": "claude"}, {"en": "Are you on the way to Maya's flat?", "de": "Bist du auf dem Weg zu Mayas Wohnung?", "src": "claude"}], "pk": "Seite 19–20 · Päckchen 1 von 2"},
+      {"en": "you aren't ...", "de": "du bist nicht ...; ihr seid nicht ...", "pg": 20, "ex": [{"en": "You aren't at my school.", "de": "Du bist nicht an meiner Schule.", "src": "buch"}, {"en": "And you aren't a student.", "de": "Und du bist kein Schüler.", "src": "buch"}, {"en": "You aren't late.", "de": "Du bist nicht zu spät.", "src": "claude"}, {"en": "You aren't in my class.", "de": "Du bist nicht in meiner Klasse.", "src": "claude"}], "pk": "Seite 19–20 · Päckchen 1 von 2"},
+      {"en": "there", "de": "da, dort; dahin, dorthin", "pg": 20, "ex": [{"en": "Let's meet our friends there.", "de": "Lass uns unsere Freunde dort treffen.", "src": "buch"}, {"en": "The library is there.", "de": "Die Bücherei ist dort.", "src": "claude"}, {"en": "Look, Sam is over there.", "de": "Schau, Sam ist dort drüben.", "src": "claude"}, {"en": "I'm not there today.", "de": "Ich bin heute nicht dort.", "src": "claude"}], "pk": "Seite 19–20 · Päckchen 1 von 2"},
+      {"en": "sad", "de": "traurig", "pg": 20, "ex": [{"en": "The boy is sad.", "de": "Der Junge ist traurig.", "src": "claude"}, {"en": "Why are you sad?", "de": "Warum bist du traurig?", "src": "claude"}, {"en": "Lily is sad today.", "de": "Lily ist heute traurig.", "src": "claude"}, {"en": "I'm sad, my friend is not here.", "de": "Ich bin traurig, mein Freund ist nicht hier.", "src": "claude"}], "pk": "Seite 19–20 · Päckchen 1 von 2"},
+      {"en": "Don't go.", "de": "Geh nicht.", "pg": 20, "ex": [{"en": "Don't go, please.", "de": "Geh bitte nicht.", "src": "claude"}, {"en": "Don't go home now.", "de": "Geh jetzt nicht nach Hause.", "src": "claude"}, {"en": "Don't go to the gym now.", "de": "Geh jetzt nicht in die Turnhalle.", "src": "claude"}, {"en": "Please don't go, Sam.", "de": "Bitte geh nicht, Sam.", "src": "claude"}], "pk": "Seite 19–20 · Päckchen 1 von 2"},
+      {"en": "Bye.", "de": "Tschüs.", "pg": 20, "ex": [{"en": "Bye, Mum!", "de": "Tschüs, Mama!", "src": "claude"}, {"en": "Bye, see you on Monday.", "de": "Tschüs, bis Montag.", "src": "claude"}, {"en": "Say bye to your friends.", "de": "Sag deinen Freunden Tschüs.", "src": "claude"}, {"en": "Bye, Miss Bell.", "de": "Tschüs, Frau Bell.", "src": "claude"}], "pk": "Seite 19–20 · Päckchen 2 von 2"},
+      {"en": "Watch out!", "de": "Pass auf! / Vorsicht!", "pg": 20, "ex": [{"en": "Watch out, Sam!", "de": "Pass auf, Sam!", "src": "claude"}, {"en": "Watch out! The ball is here.", "de": "Pass auf! Der Ball ist hier.", "src": "claude"}, {"en": "Watch out for the bus!", "de": "Pass auf den Bus auf!", "src": "claude"}, {"en": "\"Watch out!\" says Mum.", "de": "„Pass auf!“, sagt Mama.", "src": "claude"}], "pk": "Seite 19–20 · Päckchen 2 von 2"},
+      {"en": "(I'm) sorry.", "de": "Tut mir leid. / Entschuldigung.", "pg": 20, "ex": [{"en": "I'm sorry, I'm late.", "de": "Tut mir leid, ich bin zu spät.", "src": "claude"}, {"en": "Sorry, Miss Bell.", "de": "Entschuldigung, Frau Bell.", "src": "claude"}, {"en": "I'm sorry, I don't know.", "de": "Tut mir leid, ich weiß es nicht.", "src": "claude"}, {"en": "Sorry, can you say that again?", "de": "Entschuldigung, kannst du das noch einmal sagen?", "src": "claude"}], "pk": "Seite 19–20 · Päckchen 2 von 2"},
+      {"en": "So?", "de": "Und? / Na und?", "pg": 20, "ex": [{"en": "So? That's OK.", "de": "Na und? Das ist okay.", "src": "claude"}, {"en": "\"I'm late.\" – \"So?\"", "de": "„Ich bin zu spät.“ – „Na und?“", "src": "claude"}, {"en": "So? What's your name?", "de": "Und? Wie heißt du?", "src": "claude"}, {"en": "So? Is that a problem?", "de": "Na und? Ist das ein Problem?", "src": "claude"}], "pk": "Seite 19–20 · Päckchen 2 von 2"},
+      {"en": "Nice to meet you.", "de": "Freut mich, dich/euch/Sie kennenzulernen.", "pg": 20, "ex": [{"en": "Hello, Maya. Nice to meet you.", "de": "Hallo, Maya. Freut mich, dich kennenzulernen.", "src": "claude"}, {"en": "Nice to meet you, Mr Brown.", "de": "Freut mich, Sie kennenzulernen, Herr Brown.", "src": "claude"}, {"en": "\"I'm Sam.\" – \"Nice to meet you, Sam.\"", "de": "„Ich bin Sam.“ – „Freut mich, dich kennenzulernen, Sam.“", "src": "claude"}, {"en": "Nice to meet you, too.", "de": "Freut mich auch, dich kennenzulernen.", "src": "claude"}], "pk": "Seite 19–20 · Päckchen 2 von 2"},
+      {"en": "(to) hurry up", "de": "sich beeilen", "pg": 20, "ex": [{"en": "Hurry up, we are late!", "de": "Beeil dich, wir sind spät dran!", "src": "claude"}, {"en": "Please hurry up, Sam.", "de": "Bitte beeil dich, Sam.", "src": "claude"}, {"en": "Let's hurry up, the bus is here.", "de": "Lass uns beeilen, der Bus ist da.", "src": "claude"}, {"en": "Hurry up and come in.", "de": "Beeil dich und komm herein.", "src": "claude"}], "pk": "Seite 19–20 · Päckchen 2 von 2"},
+      {"en": "friendly", "de": "freundlich", "pg": 20, "ex": [{"en": "Our teacher is friendly.", "de": "Unser Lehrer ist freundlich.", "src": "claude"}, {"en": "The students are friendly.", "de": "Die Schüler sind freundlich.", "src": "claude"}, {"en": "Maya is a friendly girl.", "de": "Maya ist ein freundliches Mädchen.", "src": "claude"}, {"en": "Is your dog friendly?", "de": "Ist dein Hund freundlich?", "src": "claude"}], "pk": "Seite 19–20 · Päckchen 2 von 2"},
+      {"en": "shoe", "de": "Schuh", "pg": 21, "ex": [{"en": "I have a black shoe.", "de": "Ich habe einen schwarzen Schuh.", "src": "claude"}, {"en": "Where is my shoe?", "de": "Wo ist mein Schuh?", "src": "claude"}, {"en": "One shoe is here, one is there.", "de": "Ein Schuh ist hier, einer ist dort.", "src": "claude"}, {"en": "Look at my new shoe.", "de": "Schau dir meinen neuen Schuh an.", "src": "claude"}], "pk": "Seite 21"},
+      {"en": "trainer", "de": "Turnschuh", "pg": 21, "ex": [{"en": "A trainer is a sports shoe.", "de": "Ein Turnschuh ist ein Sportschuh.", "src": "claude"}, {"en": "I have new trainers.", "de": "Ich habe neue Turnschuhe.", "src": "claude"}, {"en": "Where is my trainer?", "de": "Wo ist mein Turnschuh?", "src": "claude"}, {"en": "Are your trainers blue?", "de": "Sind deine Turnschuhe blau?", "src": "claude"}], "pk": "Seite 21"},
+      {"en": "(to) forget", "de": "vergessen", "pg": 21, "ex": [{"en": "Don't forget your book.", "de": "Vergiss dein Buch nicht.", "src": "claude"}, {"en": "I forget my pen.", "de": "Ich vergesse meinen Stift.", "src": "claude"}, {"en": "Do you forget your homework?", "de": "Vergisst du deine Hausaufgaben?", "src": "claude"}, {"en": "Don't forget the date.", "de": "Vergiss das Datum nicht.", "src": "claude"}], "pk": "Seite 21"},
+      {"en": "(to) wear", "de": "tragen (Kleidung)", "pg": 21, "ex": [{"en": "Wear black shoes.", "de": "Trag schwarze Schuhe.", "src": "buch"}, {"en": "Don't wear trainers.", "de": "Trag keine Turnschuhe.", "src": "buch"}, {"en": "I wear a uniform at school.", "de": "In der Schule trage ich eine Uniform.", "src": "claude"}, {"en": "Do you wear trainers in the PE lesson?", "de": "Trägst du im Sportunterricht Turnschuhe?", "src": "claude"}], "pk": "Seite 21"},
+      {"en": "British", "de": "britisch", "pg": 21, "ex": [{"en": "Maya is British.", "de": "Maya ist Britin.", "src": "claude"}, {"en": "The British flag is red, white and blue.", "de": "Die britische Flagge ist rot, weiß und blau.", "src": "claude"}, {"en": "Plymouth is a British town.", "de": "Plymouth ist eine britische Stadt.", "src": "claude"}, {"en": "Is your teacher British?", "de": "Ist deine Lehrerin Britin?", "src": "claude"}], "pk": "Seite 21"},
+      {"en": "different", "de": "verschieden; anders", "pg": 21, "ex": [{"en": "Maya and Lucy are at different schools.", "de": "Maya und Lucy gehen auf verschiedene Schulen.", "src": "buch"}, {"en": "The Coombe Dean uniform is different.", "de": "Die Uniform von Coombe Dean ist anders.", "src": "buch"}, {"en": "Sam and Max have different trainers.", "de": "Sam und Max haben verschiedene Turnschuhe.", "src": "claude"}, {"en": "We have different names.", "de": "Wir haben verschiedene Namen.", "src": "claude"}], "pk": "Seite 21"},
+      {"en": "(to) have", "de": "haben", "pg": 21, "ex": [{"en": "I have one brother and two sisters.", "de": "Ich habe einen Bruder und zwei Schwestern.", "src": "buch"}, {"en": "Maya and Lucy have a new uniform.", "de": "Maya und Lucy haben eine neue Uniform.", "src": "claude"}, {"en": "Do you have a pen?", "de": "Hast du einen Stift?", "src": "claude"}, {"en": "They have a big flat.", "de": "Sie haben eine große Wohnung.", "src": "claude"}], "pk": "Seite 21"},
+      {"en": "I don't like ...", "de": "Ich mag ... nicht.", "pg": 21, "ex": [{"en": "I don't like green.", "de": "Ich mag Grün nicht.", "src": "buch"}, {"en": "I don't like football.", "de": "Ich mag Fußball nicht.", "src": "claude"}, {"en": "I don't like the dark.", "de": "Ich mag die Dunkelheit nicht.", "src": "claude"}, {"en": "I don't like my shoes.", "de": "Ich mag meine Schuhe nicht.", "src": "claude"}], "pk": "Seite 21"},
+      {"en": "Have a go.", "de": "Versuch's mal.", "pg": 21, "ex": [{"en": "Have a go, Sam!", "de": "Versuch's mal, Sam!", "src": "claude"}, {"en": "Have a go. It's easy.", "de": "Versuch's mal. Es ist leicht.", "src": "claude"}, {"en": "Come on, have a go.", "de": "Komm schon, versuch's mal.", "src": "claude"}, {"en": "Have a go at the question.", "de": "Versuch's mal mit der Frage.", "src": "claude"}], "pk": "Seite 21"},
+      {"en": "language", "de": "Sprache", "pg": 22, "ex": [{"en": "English is a language.", "de": "Englisch ist eine Sprache.", "src": "claude"}, {"en": "I speak two languages.", "de": "Ich spreche zwei Sprachen.", "src": "claude"}, {"en": "What language is this?", "de": "Welche Sprache ist das?", "src": "claude"}, {"en": "Is German your first language?", "de": "Ist Deutsch deine Muttersprache?", "src": "claude"}], "pk": "Seite 22–23"},
+      {"en": "form (of)", "de": "Form (von)", "pg": 22, "ex": [{"en": "\"am\", \"is\" and \"are\" are forms of \"(to) be\".", "de": "„am“, „is“ und „are“ sind Formen von „(to) be“.", "src": "buch"}, {"en": "\"Is\" is a form of \"(to) be\".", "de": "„Is“ ist eine Form von „(to) be“.", "src": "claude"}, {"en": "Write the right form of the verb.", "de": "Schreib die richtige Form des Verbs.", "src": "claude"}, {"en": "\"Are\" is a form of \"(to) be\", too.", "de": "„Are“ ist auch eine Form von „(to) be“.", "src": "claude"}], "pk": "Seite 22–23"},
+      {"en": "long", "de": "lang", "pg": 22, "ex": [{"en": "At German schools, a lesson is 45 minutes long.", "de": "An deutschen Schulen ist eine Stunde 45 Minuten lang.", "src": "buch"}, {"en": "The break is not long.", "de": "Die Pause ist nicht lang.", "src": "claude"}, {"en": "The film is two hours long.", "de": "Der Film ist zwei Stunden lang.", "src": "claude"}, {"en": "The lesson is long today.", "de": "Die Stunde ist heute lang.", "src": "claude"}], "pk": "Seite 22–23"},
+      {"en": "short", "de": "kurz", "pg": 22, "ex": [{"en": "The break is short.", "de": "Die Pause ist kurz.", "src": "claude"}, {"en": "This is a short sentence.", "de": "Das ist ein kurzer Satz.", "src": "claude"}, {"en": "The film is short.", "de": "Der Film ist kurz.", "src": "claude"}, {"en": "I have a short question.", "de": "Ich habe eine kurze Frage.", "src": "claude"}], "pk": "Seite 22–23"},
+      {"en": "people", "de": "Leute, Menschen", "pg": 23, "ex": [{"en": "The people in Plymouth are nice.", "de": "Die Leute in Plymouth sind nett.", "src": "buch"}, {"en": "There are people in the library.", "de": "In der Bücherei sind Leute.", "src": "claude"}, {"en": "Look at the people.", "de": "Schau dir die Leute an.", "src": "claude"}, {"en": "How many people are in your class?", "de": "Wie viele Leute sind in deiner Klasse?", "src": "claude"}], "pk": "Seite 22–23"},
+      {"en": "thing", "de": "Sache, Ding", "pg": 23, "ex": [{"en": "What is that thing?", "de": "Was ist das für ein Ding?", "src": "claude"}, {"en": "I have two things in my bag.", "de": "Ich habe zwei Sachen in meiner Tasche.", "src": "claude"}, {"en": "This is a nice thing.", "de": "Das ist eine schöne Sache.", "src": "claude"}, {"en": "My things are in the classroom.", "de": "Meine Sachen sind im Klassenzimmer.", "src": "claude"}], "pk": "Seite 22–23"},
+      {"en": "silly", "de": "albern; blöd", "pg": 23, "ex": [{"en": "That's a silly question.", "de": "Das ist eine blöde Frage.", "src": "claude"}, {"en": "Don't be silly, Sam!", "de": "Sei nicht albern, Sam!", "src": "claude"}, {"en": "The film is silly.", "de": "Der Film ist albern.", "src": "claude"}, {"en": "Max is a silly dog.", "de": "Max ist ein alberner Hund.", "src": "claude"}], "pk": "Seite 22–23"},
+      {"en": "sentence", "de": "Satz", "pg": 23, "ex": [{"en": "Write a sentence.", "de": "Schreib einen Satz.", "src": "claude"}, {"en": "This sentence is short.", "de": "Dieser Satz ist kurz.", "src": "claude"}, {"en": "Read the sentence again.", "de": "Lies den Satz noch einmal.", "src": "claude"}, {"en": "Can you say the sentence again?", "de": "Kannst du den Satz noch einmal sagen?", "src": "claude"}], "pk": "Seite 22–23"},
+      {"en": "speaker", "de": "Sprecher/in", "pg": 24, "ex": [{"en": "The speaker is a girl.", "de": "Die Sprecherin ist ein Mädchen.", "src": "claude"}, {"en": "The speaker says hello.", "de": "Der Sprecher sagt Hallo.", "src": "claude"}, {"en": "Who is the speaker?", "de": "Wer ist der Sprecher?", "src": "claude"}, {"en": "The speaker is from Plymouth.", "de": "Der Sprecher kommt aus Plymouth.", "src": "claude"}], "pk": "Seite 24"},
+      {"en": "(to) speak", "de": "sprechen", "pg": 24, "ex": [{"en": "Can you speak English?", "de": "Kannst du Englisch sprechen?", "src": "buch"}, {"en": "I speak German.", "de": "Ich spreche Deutsch.", "src": "claude"}, {"en": "Do you speak French?", "de": "Sprichst du Französisch?", "src": "claude"}, {"en": "Please speak English in class.", "de": "Bitte sprecht im Unterricht Englisch.", "src": "claude"}], "pk": "Seite 24"},
+      {"en": "about me/you/...", "de": "über mich/dich/...", "pg": 24, "ex": [{"en": "Write about me.", "de": "Schreib über mich.", "src": "claude"}, {"en": "Ask me about you.", "de": "Frag mich nach dir.", "src": "claude"}, {"en": "Tell us about you, Sam.", "de": "Erzähl uns von dir, Sam.", "src": "claude"}, {"en": "This book is about me and you.", "de": "Dieses Buch handelt von mir und dir.", "src": "claude"}], "pk": "Seite 24"},
+      {"en": "at 1 o'clock", "de": "um 1 Uhr / um 13 Uhr", "pg": 24, "ex": [{"en": "It's 1 o'clock now.", "de": "Es ist jetzt 1 Uhr.", "src": "buch"}, {"en": "The lesson is at 1 o'clock.", "de": "Die Stunde ist um 1 Uhr.", "src": "claude"}, {"en": "I'm home at 2 o'clock.", "de": "Um 2 Uhr bin ich zu Hause.", "src": "claude"}, {"en": "The bus is here at 8 o'clock.", "de": "Der Bus ist um 8 Uhr hier.", "src": "claude"}], "pk": "Seite 24"},
+      {"en": "appointment", "de": "Verabredung, Termin", "pg": 24, "ex": [{"en": "I have an appointment at 2 o'clock.", "de": "Ich habe um 2 Uhr einen Termin.", "src": "buch"}, {"en": "Maya has an appointment on Monday.", "de": "Maya hat am Montag einen Termin.", "src": "claude"}, {"en": "Do you have an appointment today?", "de": "Hast du heute einen Termin?", "src": "claude"}, {"en": "Sorry, I have an appointment.", "de": "Tut mir leid, ich habe eine Verabredung.", "src": "claude"}], "pk": "Seite 24"},
+      {"en": "when", "de": "wenn", "pg": 25, "ex": [{"en": "Can we play cards when you come home?", "de": "Können wir Karten spielen, wenn du nach Hause kommst?", "src": "buch"}, {"en": "Say hello when you come in.", "de": "Sag Hallo, wenn du hereinkommst.", "src": "claude"}, {"en": "I wear trainers when I play football.", "de": "Ich trage Turnschuhe, wenn ich Fußball spiele.", "src": "claude"}, {"en": "Listen when the teacher speaks.", "de": "Hör zu, wenn die Lehrerin spricht.", "src": "claude"}], "pk": "Seite 25–26 · Päckchen 1 von 3"},
+      {"en": "telephone", "de": "Telefon (kurz auch: phone)", "pg": 25, "ex": [{"en": "My telephone is new.", "de": "Mein Telefon ist neu.", "src": "claude"}, {"en": "Where is the telephone?", "de": "Wo ist das Telefon?", "src": "claude"}, {"en": "Mum is on the telephone.", "de": "Mama telefoniert gerade.", "src": "claude"}, {"en": "Is that your telephone number?", "de": "Ist das deine Telefonnummer?", "src": "claude"}], "pk": "Seite 25–26 · Päckchen 1 von 3"},
+      {"en": "zero", "de": "Null", "pg": 25, "ex": [{"en": "Zero is a number.", "de": "Null ist eine Zahl.", "src": "claude"}, {"en": "Five minus five is zero.", "de": "Fünf minus fünf ist null.", "src": "claude"}, {"en": "The score is zero.", "de": "Es steht null.", "src": "claude"}, {"en": "Write zero on the board.", "de": "Schreib null an die Tafel.", "src": "claude"}], "pk": "Seite 25–26 · Päckchen 1 von 3"},
+      {"en": "o", "de": "Null (in Telefonnummern)", "pg": 25, "ex": [{"en": "Say o in a phone number.", "de": "Sag „o“ in einer Telefonnummer.", "src": "claude"}, {"en": "Sam's phone number is o one double six.", "de": "Sams Telefonnummer ist null eins sechs sechs.", "src": "claude"}, {"en": "Is it zero or o in a phone number?", "de": "Sagt man in einer Telefonnummer „zero“ oder „o“?", "src": "claude"}, {"en": "My number is o two o, one two three.", "de": "Meine Nummer ist null zwei null, eins zwei drei.", "src": "claude"}], "pk": "Seite 25–26 · Päckchen 1 von 3"},
+      {"en": "double", "de": "Doppel-", "pg": 25, "ex": [{"en": "Double six is 66.", "de": "Doppel-Sechs ist 66.", "src": "claude"}, {"en": "Say double five, not five five.", "de": "Sag „double five“, nicht „five five“.", "src": "claude"}, {"en": "My number is double two, one.", "de": "Meine Nummer ist zwei zwei eins.", "src": "claude"}, {"en": "Bell has a double l.", "de": "Bell hat ein doppeltes l.", "src": "claude"}], "pk": "Seite 25–26 · Päckchen 1 von 3"},
+      {"en": "twenty-one", "de": "21", "pg": 25, "ex": [{"en": "There are twenty-one students in the class.", "de": "In der Klasse sind einundzwanzig Schüler.", "src": "claude"}, {"en": "Look at page twenty-one.", "de": "Schau auf Seite einundzwanzig.", "src": "claude"}, {"en": "I have twenty-one books.", "de": "Ich habe einundzwanzig Bücher.", "src": "claude"}, {"en": "Count to twenty-one.", "de": "Zähle bis einundzwanzig.", "src": "claude"}], "pk": "Seite 25–26 · Päckchen 1 von 3"},
+      {"en": "twenty-two", "de": "22", "pg": 25, "ex": [{"en": "Twenty-two students are here.", "de": "Zweiundzwanzig Schüler sind hier.", "src": "claude"}, {"en": "Look at page twenty-two.", "de": "Schau auf Seite zweiundzwanzig.", "src": "claude"}, {"en": "Bus number twenty-two is late.", "de": "Bus Nummer zweiundzwanzig ist zu spät.", "src": "claude"}, {"en": "Count to twenty-two.", "de": "Zähle bis zweiundzwanzig.", "src": "claude"}], "pk": "Seite 25–26 · Päckchen 1 von 3"},
+      {"en": "twenty-three", "de": "23", "pg": 25, "ex": [{"en": "There are twenty-three books here.", "de": "Hier sind dreiundzwanzig Bücher.", "src": "claude"}, {"en": "Look at page twenty-three.", "de": "Schau auf Seite dreiundzwanzig.", "src": "claude"}, {"en": "Twenty-three students are in the gym.", "de": "Dreiundzwanzig Schüler sind in der Turnhalle.", "src": "claude"}, {"en": "Write twenty-three in your book.", "de": "Schreib dreiundzwanzig in dein Heft.", "src": "claude"}], "pk": "Seite 25–26 · Päckchen 1 von 3"},
+      {"en": "twenty-four", "de": "24", "pg": 25, "ex": [{"en": "There are twenty-four hours in a day.", "de": "Ein Tag hat vierundzwanzig Stunden.", "src": "claude"}, {"en": "Look at page twenty-four.", "de": "Schau auf Seite vierundzwanzig.", "src": "claude"}, {"en": "Twenty-four students are here.", "de": "Vierundzwanzig Schüler sind hier.", "src": "claude"}, {"en": "Count to twenty-four.", "de": "Zähle bis vierundzwanzig.", "src": "claude"}], "pk": "Seite 25–26 · Päckchen 1 von 3"},
+      {"en": "twenty-five", "de": "25", "pg": 25, "ex": [{"en": "I have twenty-five books.", "de": "Ich habe fünfundzwanzig Bücher.", "src": "claude"}, {"en": "Twenty-five students are in my class.", "de": "In meiner Klasse sind fünfundzwanzig Schüler.", "src": "claude"}, {"en": "Look at page twenty-five.", "de": "Schau auf Seite fünfundzwanzig.", "src": "claude"}, {"en": "Count to twenty-five.", "de": "Zähle bis fünfundzwanzig.", "src": "claude"}], "pk": "Seite 25–26 · Päckchen 2 von 3"},
+      {"en": "twenty-six", "de": "26", "pg": 25, "ex": [{"en": "There are twenty-six letters in English.", "de": "Das englische Alphabet hat sechsundzwanzig Buchstaben.", "src": "claude"}, {"en": "Look at page twenty-six.", "de": "Schau auf Seite sechsundzwanzig.", "src": "claude"}, {"en": "Twenty-six students are here.", "de": "Sechsundzwanzig Schüler sind hier.", "src": "claude"}, {"en": "Count to twenty-six.", "de": "Zähle bis sechsundzwanzig.", "src": "claude"}], "pk": "Seite 25–26 · Päckchen 2 von 3"},
+      {"en": "thirty", "de": "30", "pg": 25, "ex": [{"en": "The lesson is thirty minutes long.", "de": "Die Stunde ist dreißig Minuten lang.", "src": "claude"}, {"en": "Thirty students are here.", "de": "Dreißig Schüler sind hier.", "src": "claude"}, {"en": "Count to thirty.", "de": "Zähle bis dreißig.", "src": "claude"}, {"en": "There are thirty days in April.", "de": "Der April hat dreißig Tage.", "src": "claude"}], "pk": "Seite 25–26 · Päckchen 2 von 3"},
+      {"en": "thirty-one", "de": "31", "pg": 25, "ex": [{"en": "January has thirty-one days.", "de": "Der Januar hat einunddreißig Tage.", "src": "claude"}, {"en": "Count to thirty-one.", "de": "Zähle bis einunddreißig.", "src": "claude"}, {"en": "Look at page thirty-one.", "de": "Schau auf Seite einunddreißig.", "src": "claude"}, {"en": "There are thirty-one students here.", "de": "Hier sind einunddreißig Schüler.", "src": "claude"}], "pk": "Seite 25–26 · Päckchen 2 von 3"},
+      {"en": "thirty-two", "de": "32", "pg": 25, "ex": [{"en": "Look at page thirty-two.", "de": "Schau auf Seite zweiunddreißig.", "src": "claude"}, {"en": "There are thirty-two students.", "de": "Es sind zweiunddreißig Schüler.", "src": "claude"}, {"en": "Count to thirty-two.", "de": "Zähle bis zweiunddreißig.", "src": "claude"}, {"en": "Write thirty-two in your book.", "de": "Schreib zweiunddreißig in dein Heft.", "src": "claude"}], "pk": "Seite 25–26 · Päckchen 2 von 3"},
+      {"en": "forty", "de": "40", "pg": 25, "ex": [{"en": "My dad is forty.", "de": "Mein Papa ist vierzig.", "src": "claude"}, {"en": "Forty students are in the gym.", "de": "Vierzig Schüler sind in der Turnhalle.", "src": "claude"}, {"en": "Count to forty.", "de": "Zähle bis vierzig.", "src": "claude"}, {"en": "The film is forty minutes long.", "de": "Der Film ist vierzig Minuten lang.", "src": "claude"}], "pk": "Seite 25–26 · Päckchen 2 von 3"},
+      {"en": "fifty", "de": "50", "pg": 25, "ex": [{"en": "I have fifty pens.", "de": "Ich habe fünfzig Stifte.", "src": "claude"}, {"en": "Count to fifty.", "de": "Zähle bis fünfzig.", "src": "claude"}, {"en": "Look at page fifty.", "de": "Schau auf Seite fünfzig.", "src": "claude"}, {"en": "Fifty students are here.", "de": "Fünfzig Schüler sind hier.", "src": "claude"}], "pk": "Seite 25–26 · Päckchen 2 von 3"},
+      {"en": "sixty", "de": "60", "pg": 25, "ex": [{"en": "There are sixty minutes in an hour.", "de": "Eine Stunde hat sechzig Minuten.", "src": "claude"}, {"en": "Count to sixty.", "de": "Zähle bis sechzig.", "src": "claude"}, {"en": "Look at page sixty.", "de": "Schau auf Seite sechzig.", "src": "claude"}, {"en": "Sixty students are in the schoolyard.", "de": "Sechzig Schüler sind auf dem Schulhof.", "src": "claude"}], "pk": "Seite 25–26 · Päckchen 2 von 3"},
+      {"en": "seventy", "de": "70", "pg": 25, "ex": [{"en": "Count to seventy.", "de": "Zähle bis siebzig.", "src": "claude"}, {"en": "Look at page seventy.", "de": "Schau auf Seite siebzig.", "src": "claude"}, {"en": "There are seventy books in the library.", "de": "In der Bücherei sind siebzig Bücher.", "src": "claude"}, {"en": "The bus is number seventy.", "de": "Der Bus hat die Nummer siebzig.", "src": "claude"}], "pk": "Seite 25–26 · Päckchen 3 von 3"},
+      {"en": "eighty", "de": "80", "pg": 25, "ex": [{"en": "Count to eighty.", "de": "Zähle bis achtzig.", "src": "claude"}, {"en": "Look at page eighty.", "de": "Schau auf Seite achtzig.", "src": "claude"}, {"en": "There are eighty books here.", "de": "Hier sind achtzig Bücher.", "src": "claude"}, {"en": "Bus number eighty is late.", "de": "Bus Nummer achtzig ist zu spät.", "src": "claude"}], "pk": "Seite 25–26 · Päckchen 3 von 3"},
+      {"en": "ninety", "de": "90", "pg": 25, "ex": [{"en": "Count to ninety.", "de": "Zähle bis neunzig.", "src": "claude"}, {"en": "Look at page ninety.", "de": "Schau auf Seite neunzig.", "src": "claude"}, {"en": "There are ninety books in the library.", "de": "In der Bücherei sind neunzig Bücher.", "src": "claude"}, {"en": "Nineteen is not ninety.", "de": "Neunzehn ist nicht neunzig.", "src": "claude"}], "pk": "Seite 25–26 · Päckchen 3 von 3"},
+      {"en": "a hundred / one hundred", "de": "100", "pg": 25, "ex": [{"en": "Can you count to a hundred?", "de": "Kannst du bis hundert zählen?", "src": "claude"}, {"en": "There are one hundred students at my school.", "de": "An meiner Schule sind hundert Schüler.", "src": "claude"}, {"en": "I have a hundred books.", "de": "Ich habe hundert Bücher.", "src": "claude"}, {"en": "Count to one hundred.", "de": "Zähle bis hundert.", "src": "claude"}], "pk": "Seite 25–26 · Päckchen 3 von 3"},
+      {"en": "street", "de": "Straße", "pg": 25, "ex": [{"en": "They live at 88 School Street.", "de": "Sie wohnen in der School Street 88.", "src": "buch"}, {"en": "I live in a small street.", "de": "Ich wohne in einer kleinen Straße.", "src": "claude"}, {"en": "Is the school in your street?", "de": "Ist die Schule in deiner Straße?", "src": "claude"}, {"en": "Look at the street name.", "de": "Schau dir den Straßennamen an.", "src": "claude"}], "pk": "Seite 25–26 · Päckchen 3 von 3"},
+      {"en": "help", "de": "Hilfe", "pg": 26, "ex": [{"en": "Thanks for your help.", "de": "Danke für deine Hilfe.", "src": "claude"}, {"en": "I need help, please.", "de": "Ich brauche bitte Hilfe.", "src": "claude"}, {"en": "Maya says thank you for the help.", "de": "Maya bedankt sich für die Hilfe.", "src": "claude"}, {"en": "Do you need help?", "de": "Brauchst du Hilfe?", "src": "claude"}], "pk": "Seite 25–26 · Päckchen 3 von 3"},
+      {"en": "(to) help", "de": "helfen", "pg": 26, "ex": [{"en": "Can you help me, please?", "de": "Kannst du mir bitte helfen?", "src": "buch"}, {"en": "I can help you.", "de": "Ich kann dir helfen.", "src": "claude"}, {"en": "We help our teacher.", "de": "Wir helfen unserer Lehrerin.", "src": "claude"}, {"en": "Please help Lily.", "de": "Bitte hilf Lily.", "src": "claude"}], "pk": "Seite 25–26 · Päckchen 3 von 3"},
+      {"en": "in English / in German", "de": "auf Englisch / auf Deutsch", "pg": 26, "ex": [{"en": "Can you say it in English, please?", "de": "Kannst du es bitte auf Englisch sagen?", "src": "buch"}, {"en": "Say hello in German.", "de": "Sag Hallo auf Deutsch.", "src": "claude"}, {"en": "We speak in English in class.", "de": "Im Unterricht sprechen wir Englisch.", "src": "claude"}, {"en": "How do you say \"Hund\" in English?", "de": "Wie sagt man „Hund“ auf Englisch?", "src": "claude"}], "pk": "Seite 25–26 · Päckchen 3 von 3"},
+      {"en": "Miss Bell", "de": "Frau Bell (übliche Anrede von Lehrerinnen)", "pg": 28, "ex": [{"en": "Can I open the window, Miss?", "de": "Darf ich das Fenster öffnen, Frau Bell?", "src": "buch"}, {"en": "Miss Bell is our teacher.", "de": "Frau Bell ist unsere Lehrerin.", "src": "claude"}, {"en": "Good morning, Miss Bell.", "de": "Guten Morgen, Frau Bell.", "src": "claude"}, {"en": "Miss Bell is friendly.", "de": "Frau Bell ist freundlich.", "src": "claude"}], "pk": "Seite 28 · Päckchen 1 von 3"},
+      {"en": "Good morning.", "de": "Guten Morgen.", "pg": 28, "ex": [{"en": "Good morning, class.", "de": "Guten Morgen, Klasse.", "src": "claude"}, {"en": "Good morning, Mr Brown.", "de": "Guten Morgen, Herr Brown.", "src": "claude"}, {"en": "Say good morning to your teacher.", "de": "Sag deiner Lehrerin Guten Morgen.", "src": "claude"}, {"en": "\"Good morning, Mum!\" says Sam.", "de": "„Guten Morgen, Mama!“, sagt Sam.", "src": "claude"}], "pk": "Seite 28 · Päckchen 1 von 3"},
+      {"en": "so", "de": "also; deshalb, daher", "pg": 28, "ex": [{"en": "It's your first day at school, so let me show you the school.", "de": "Es ist dein erster Schultag, also zeige ich dir die Schule.", "src": "buch"}, {"en": "It's late, so hurry up.", "de": "Es ist spät, also beeil dich.", "src": "claude"}, {"en": "The bus is late, so we wait.", "de": "Der Bus ist zu spät, deshalb warten wir.", "src": "claude"}, {"en": "I don't know the answer, so I ask my teacher.", "de": "Ich weiß die Antwort nicht, deshalb frage ich meine Lehrerin.", "src": "claude"}], "pk": "Seite 28 · Päckchen 1 von 3"},
+      {"en": "(to) come in", "de": "hereinkommen", "pg": 28, "ex": [{"en": "Come in, please.", "de": "Komm bitte herein.", "src": "claude"}, {"en": "Come in and sit down.", "de": "Komm herein und setz dich.", "src": "claude"}, {"en": "Can I come in, Miss Bell?", "de": "Darf ich hereinkommen, Frau Bell?", "src": "claude"}, {"en": "Please come in, the door is open.", "de": "Komm bitte herein, die Tür ist offen.", "src": "claude"}], "pk": "Seite 28 · Päckchen 1 von 3"},
+      {"en": "(to) start", "de": "anfangen, beginnen", "pg": 28, "ex": [{"en": "Can I start?", "de": "Darf ich anfangen?", "src": "buch"}, {"en": "Let's start now.", "de": "Lass uns jetzt anfangen.", "src": "claude"}, {"en": "We start with the first question.", "de": "Wir fangen mit der ersten Frage an.", "src": "claude"}, {"en": "When does school start?", "de": "Wann fängt die Schule an?", "src": "claude"}], "pk": "Seite 28 · Päckchen 1 von 3"},
+      {"en": "ball", "de": "Ball", "pg": 28, "ex": [{"en": "Throw the ball to Sam.", "de": "Wirf Sam den Ball zu.", "src": "claude"}, {"en": "I have a new ball.", "de": "Ich habe einen neuen Ball.", "src": "claude"}, {"en": "Where is my ball?", "de": "Wo ist mein Ball?", "src": "claude"}, {"en": "Look, a big ball!", "de": "Schau, ein großer Ball!", "src": "claude"}], "pk": "Seite 28 · Päckchen 1 von 3"},
+      {"en": "(to) throw", "de": "werfen", "pg": 28, "ex": [{"en": "Throw the ball to me.", "de": "Wirf mir den Ball zu.", "src": "claude"}, {"en": "Don't throw your book.", "de": "Wirf dein Buch nicht.", "src": "claude"}, {"en": "Sam can throw the ball.", "de": "Sam kann den Ball werfen.", "src": "claude"}, {"en": "Throw it to Maya.", "de": "Wirf ihn Maya zu.", "src": "claude"}], "pk": "Seite 28 · Päckchen 1 von 3"},
+      {"en": "(to) ask", "de": "fragen", "pg": 28, "ex": [{"en": "Ask Miss Bell.", "de": "Frag Frau Bell.", "src": "buch"}, {"en": "Can I ask you a question?", "de": "Darf ich dich etwas fragen?", "src": "buch"}, {"en": "Please ask your mum.", "de": "Bitte frag deine Mama.", "src": "claude"}, {"en": "We ask the teacher about the homework.", "de": "Wir fragen die Lehrerin nach den Hausaufgaben.", "src": "claude"}], "pk": "Seite 28 · Päckchen 2 von 3"},
+      {"en": "(to) catch", "de": "fangen", "pg": 28, "ex": [{"en": "Catch the ball!", "de": "Fang den Ball!", "src": "claude"}, {"en": "I can catch a ball.", "de": "Ich kann einen Ball fangen.", "src": "claude"}, {"en": "Sam throws, Lily catches.", "de": "Sam wirft, Lily fängt.", "src": "claude"}, {"en": "Can you catch this?", "de": "Kannst du das fangen?", "src": "claude"}], "pk": "Seite 28 · Päckchen 2 von 3"},
+      {"en": "(to) answer", "de": "antworten; beantworten", "pg": 28, "ex": [{"en": "Please answer the question.", "de": "Bitte beantworte die Frage.", "src": "claude"}, {"en": "I can answer that.", "de": "Das kann ich beantworten.", "src": "claude"}, {"en": "Maya answers the teacher.", "de": "Maya antwortet der Lehrerin.", "src": "claude"}, {"en": "Ask a question, then answer it.", "de": "Stell eine Frage und beantworte sie dann.", "src": "claude"}], "pk": "Seite 28 · Päckchen 2 von 3"},
+      {"en": "answer", "de": "Antwort", "pg": 28, "ex": [{"en": "What's your answer?", "de": "Was ist deine Antwort?", "src": "claude"}, {"en": "The answer is right.", "de": "Die Antwort ist richtig.", "src": "claude"}, {"en": "I know the answer.", "de": "Ich weiß die Antwort.", "src": "claude"}, {"en": "Write the answer in your book.", "de": "Schreib die Antwort in dein Heft.", "src": "claude"}], "pk": "Seite 28 · Päckchen 2 von 3"},
+      {"en": "about yourself", "de": "über dich selbst", "pg": 28, "ex": [{"en": "Write about yourself.", "de": "Schreib über dich selbst.", "src": "claude"}, {"en": "Tell the class about yourself.", "de": "Erzähl der Klasse von dir.", "src": "claude"}, {"en": "Talk about yourself, Sam.", "de": "Sprich über dich selbst, Sam.", "src": "claude"}, {"en": "Say a sentence about yourself.", "de": "Sag einen Satz über dich selbst.", "src": "claude"}], "pk": "Seite 28 · Päckchen 2 von 3"},
+      {"en": "birthday", "de": "Geburtstag", "pg": 28, "ex": [{"en": "My birthday is in May.", "de": "Mein Geburtstag ist im Mai.", "src": "buch"}, {"en": "When's your birthday?", "de": "Wann hast du Geburtstag?", "src": "buch"}, {"en": "Happy birthday, Maya!", "de": "Alles Gute zum Geburtstag, Maya!", "src": "claude"}, {"en": "Today is my birthday.", "de": "Heute ist mein Geburtstag.", "src": "claude"}], "pk": "Seite 28 · Päckchen 2 von 3"},
+      {"en": "September", "de": "September", "pg": 28, "ex": [{"en": "My birthday is in September.", "de": "Mein Geburtstag ist im September.", "src": "claude"}, {"en": "School starts in September.", "de": "Die Schule fängt im September an.", "src": "claude"}, {"en": "We have a new class in September.", "de": "Im September haben wir eine neue Klasse.", "src": "claude"}, {"en": "Is your birthday in September?", "de": "Ist dein Geburtstag im September?", "src": "claude"}], "pk": "Seite 28 · Päckchen 3 von 3"},
+      {"en": "(to) do", "de": "machen, tun", "pg": 28, "ex": [{"en": "What do you do after school?", "de": "Was machst du nach der Schule?", "src": "claude"}, {"en": "I do my homework.", "de": "Ich mache meine Hausaufgaben.", "src": "claude"}, {"en": "Do you like football?", "de": "Magst du Fußball?", "src": "claude"}, {"en": "We do maths on Monday.", "de": "Am Montag haben wir Mathe.", "src": "claude"}], "pk": "Seite 28 · Päckchen 3 von 3"},
+      {"en": "(to) live", "de": "leben; wohnen", "pg": 28, "ex": [{"en": "Justin and his mum live in Plymouth.", "de": "Justin und seine Mama wohnen in Plymouth.", "src": "buch"}, {"en": "I live in a flat.", "de": "Ich wohne in einer Wohnung.", "src": "claude"}, {"en": "Where do you live?", "de": "Wo wohnst du?", "src": "claude"}, {"en": "We live in a small street.", "de": "Wir wohnen in einer kleinen Straße.", "src": "claude"}], "pk": "Seite 28 · Päckchen 3 von 3"},
+      {"en": "then", "de": "dann", "pg": 28, "ex": [{"en": "Throw the ball. Then ask a question.", "de": "Wirf den Ball. Dann stell eine Frage.", "src": "buch"}, {"en": "First come in. Then sit down.", "de": "Komm zuerst herein. Dann setz dich.", "src": "claude"}, {"en": "Read the sentence, then write it.", "de": "Lies den Satz, dann schreib ihn auf.", "src": "claude"}, {"en": "Wait a minute. Then go home.", "de": "Warte eine Minute. Dann geh nach Hause.", "src": "claude"}], "pk": "Seite 28 · Päckchen 3 von 3"},
+      {"en": "again", "de": "wieder; noch einmal", "pg": 28, "ex": [{"en": "Can you say that again, please?", "de": "Kannst du das bitte noch einmal sagen?", "src": "buch"}, {"en": "Read the sentence again.", "de": "Lies den Satz noch einmal.", "src": "claude"}, {"en": "Hello again, Sam!", "de": "Hallo noch mal, Sam!", "src": "claude"}, {"en": "I'm late again.", "de": "Ich bin schon wieder zu spät.", "src": "claude"}], "pk": "Seite 28 · Päckchen 3 von 3"},
+      {"en": "timetable", "de": "Stundenplan", "pg": 28, "ex": [{"en": "Look at the timetable.", "de": "Schau auf den Stundenplan.", "src": "claude"}, {"en": "My timetable has English on Monday.", "de": "Laut meinem Stundenplan habe ich am Montag Englisch.", "src": "claude"}, {"en": "Is maths on the timetable?", "de": "Steht Mathe auf dem Stundenplan?", "src": "claude"}, {"en": "The timetable is in my bag.", "de": "Der Stundenplan ist in meiner Tasche.", "src": "claude"}], "pk": "Seite 28 · Päckchen 3 von 3"},
+      {"en": "word", "de": "Wort", "pg": 29, "ex": [{"en": "Write the word.", "de": "Schreib das Wort.", "src": "claude"}, {"en": "I know this word.", "de": "Ich kenne dieses Wort.", "src": "claude"}, {"en": "What's this word in German?", "de": "Was heißt dieses Wort auf Deutsch?", "src": "claude"}, {"en": "Spell the word, please.", "de": "Buchstabiere bitte das Wort.", "src": "claude"}], "pk": "Seite 29 · Päckchen 1 von 2"},
+      {"en": "quarter past ten", "de": "Viertel nach zehn (10.15 / 22.15)", "pg": 29, "ex": [{"en": "It's quarter past ten.", "de": "Es ist Viertel nach zehn.", "src": "claude"}, {"en": "The lesson starts at quarter past ten.", "de": "Die Stunde fängt um Viertel nach zehn an.", "src": "claude"}, {"en": "Quarter past ten is 10.15.", "de": "Viertel nach zehn ist 10.15 Uhr.", "src": "claude"}, {"en": "We have a break at quarter past ten.", "de": "Um Viertel nach zehn haben wir Pause.", "src": "claude"}], "pk": "Seite 29 · Päckchen 1 von 2"},
+      {"en": "half past ten", "de": "halb elf (10.30 / 22.30)", "pg": 29, "ex": [{"en": "It's half past ten.", "de": "Es ist halb elf.", "src": "claude"}, {"en": "I'm home at half past ten.", "de": "Um halb elf bin ich zu Hause.", "src": "claude"}, {"en": "Half past ten is 10.30.", "de": "Halb elf ist 10.30 Uhr.", "src": "claude"}, {"en": "We meet at half past ten.", "de": "Wir treffen uns um halb elf.", "src": "claude"}], "pk": "Seite 29 · Päckchen 1 von 2"},
+      {"en": "quarter to eleven", "de": "Viertel vor elf (10.45 / 22.45)", "pg": 29, "ex": [{"en": "It's quarter to eleven.", "de": "Es ist Viertel vor elf.", "src": "claude"}, {"en": "The bus is here at quarter to eleven.", "de": "Der Bus ist um Viertel vor elf hier.", "src": "claude"}, {"en": "Quarter to eleven is 10.45.", "de": "Viertel vor elf ist 10.45 Uhr.", "src": "claude"}, {"en": "Sam is late. It's quarter to eleven.", "de": "Sam ist zu spät. Es ist Viertel vor elf.", "src": "claude"}], "pk": "Seite 29 · Päckchen 1 von 2"},
+      {"en": "(school) subject", "de": "Schulfach", "pg": 29, "ex": [{"en": "Maths is a school subject.", "de": "Mathe ist ein Schulfach.", "src": "claude"}, {"en": "Which subject do you like?", "de": "Welches Fach magst du?", "src": "claude"}, {"en": "We have six subjects on Monday.", "de": "Am Montag haben wir sechs Fächer.", "src": "claude"}, {"en": "Do you like this subject?", "de": "Magst du dieses Fach?", "src": "claude"}], "pk": "Seite 29 · Päckchen 1 von 2"},
+      {"en": "art", "de": "Kunst", "pg": 29, "ex": [{"en": "I like art.", "de": "Ich mag Kunst.", "src": "claude"}, {"en": "Art is on Tuesday.", "de": "Kunst ist am Dienstag.", "src": "claude"}, {"en": "Our art teacher is friendly.", "de": "Unsere Kunstlehrerin ist freundlich.", "src": "claude"}, {"en": "Maya is good at art.", "de": "Maya ist gut in Kunst.", "src": "claude"}], "pk": "Seite 29 · Päckchen 1 von 2"},
+      {"en": "design and technology", "de": "Design und Technik", "pg": 29, "ex": [{"en": "We have design and technology on Friday.", "de": "Am Freitag haben wir Design und Technik.", "src": "claude"}, {"en": "Design and technology is a subject.", "de": "Design und Technik ist ein Schulfach.", "src": "claude"}, {"en": "Do you like design and technology?", "de": "Magst du Design und Technik?", "src": "claude"}, {"en": "Mr Brown is our design and technology teacher.", "de": "Herr Brown ist unser Lehrer für Design und Technik.", "src": "claude"}], "pk": "Seite 29 · Päckchen 1 von 2"},
+      {"en": "ICT", "de": "Informations- und Kommunikationstechnologie", "pg": 29, "ex": [{"en": "We have ICT on Wednesday.", "de": "Am Mittwoch haben wir Informatik.", "src": "claude"}, {"en": "ICT is a school subject.", "de": "Informatik ist ein Schulfach.", "src": "claude"}, {"en": "Sam likes ICT.", "de": "Sam mag Informatik.", "src": "claude"}, {"en": "Is ICT on the timetable?", "de": "Steht Informatik auf dem Stundenplan?", "src": "claude"}], "pk": "Seite 29 · Päckchen 1 von 2"},
+      {"en": "maths", "de": "Mathematik", "pg": 29, "ex": [{"en": "I have maths at nine o'clock.", "de": "Um neun Uhr habe ich Mathe.", "src": "claude"}, {"en": "Do you like maths?", "de": "Magst du Mathe?", "src": "claude"}, {"en": "Maths is not easy.", "de": "Mathe ist nicht leicht.", "src": "claude"}, {"en": "We have maths on Monday.", "de": "Am Montag haben wir Mathe.", "src": "claude"}], "pk": "Seite 29 · Päckchen 2 von 2"},
+      {"en": "French", "de": "Französisch", "pg": 29, "ex": [{"en": "Maya speaks French.", "de": "Maya spricht Französisch.", "src": "claude"}, {"en": "We have French on Friday.", "de": "Am Freitag haben wir Französisch.", "src": "claude"}, {"en": "French is a language.", "de": "Französisch ist eine Sprache.", "src": "claude"}, {"en": "Do you like French?", "de": "Magst du Französisch?", "src": "claude"}], "pk": "Seite 29 · Päckchen 2 von 2"},
+      {"en": "music", "de": "Musik", "pg": 29, "ex": [{"en": "I like music.", "de": "Ich mag Musik.", "src": "claude"}, {"en": "We have music on Wednesday.", "de": "Am Mittwoch haben wir Musik.", "src": "claude"}, {"en": "The music is nice.", "de": "Die Musik ist schön.", "src": "claude"}, {"en": "Lily has music at ten o'clock.", "de": "Lily hat um zehn Uhr Musik.", "src": "claude"}], "pk": "Seite 29 · Päckchen 2 von 2"},
+      {"en": "geography", "de": "Geografie", "pg": 29, "ex": [{"en": "Geography is a subject.", "de": "Erdkunde ist ein Schulfach.", "src": "claude"}, {"en": "We have geography on Tuesday.", "de": "Am Dienstag haben wir Erdkunde.", "src": "claude"}, {"en": "I like geography.", "de": "Ich mag Erdkunde.", "src": "claude"}, {"en": "Is geography easy?", "de": "Ist Erdkunde leicht?", "src": "claude"}], "pk": "Seite 29 · Päckchen 2 von 2"},
+      {"en": "PE", "de": "Sportunterricht, Turnen", "pg": 29, "ex": [{"en": "We have PE in the gym.", "de": "Sport haben wir in der Turnhalle.", "src": "claude"}, {"en": "PE is on Thursday.", "de": "Sport ist am Donnerstag.", "src": "claude"}, {"en": "I wear trainers for PE.", "de": "Für den Sportunterricht trage ich Turnschuhe.", "src": "claude"}, {"en": "Do you like PE?", "de": "Magst du Sport?", "src": "claude"}], "pk": "Seite 29 · Päckchen 2 von 2"},
+      {"en": "history", "de": "Geschichte", "pg": 29, "ex": [{"en": "History is on Friday.", "de": "Geschichte ist am Freitag.", "src": "claude"}, {"en": "Sam likes history.", "de": "Sam mag Geschichte.", "src": "claude"}, {"en": "We have history with Mr Brown.", "de": "Geschichte haben wir bei Herrn Brown.", "src": "claude"}, {"en": "Do you like history?", "de": "Magst du Geschichte?", "src": "claude"}], "pk": "Seite 29 · Päckchen 2 von 2"},
+      {"en": "religion", "de": "Religion", "pg": 29, "ex": [{"en": "We have religion on Monday.", "de": "Am Montag haben wir Religion.", "src": "claude"}, {"en": "Religion is a subject.", "de": "Religion ist ein Schulfach.", "src": "claude"}, {"en": "Miss Bell is our religion teacher.", "de": "Frau Bell ist unsere Religionslehrerin.", "src": "claude"}, {"en": "Do you have religion today?", "de": "Hast du heute Religion?", "src": "claude"}], "pk": "Seite 29 · Päckchen 2 von 2"},
+      {"en": "science", "de": "Naturwissenschaft", "pg": 29, "ex": [{"en": "We have science on Tuesday.", "de": "Am Dienstag haben wir Naturwissenschaften.", "src": "claude"}, {"en": "Science is a school subject.", "de": "Naturwissenschaften sind ein Schulfach.", "src": "claude"}, {"en": "Do you like science?", "de": "Magst du Naturwissenschaften?", "src": "claude"}, {"en": "Mrs Brown is our science teacher.", "de": "Frau Brown ist unsere Lehrerin für Naturwissenschaften.", "src": "claude"}], "pk": "Seite 29 · Päckchen 2 von 2"},
+      {"en": "hour", "de": "Stunde", "pg": 30, "ex": [{"en": "One hour has sixty minutes.", "de": "Eine Stunde hat sechzig Minuten.", "src": "claude"}, {"en": "The film is one hour long.", "de": "Der Film ist eine Stunde lang.", "src": "claude"}, {"en": "Wait for an hour.", "de": "Warte eine Stunde.", "src": "claude"}, {"en": "I'm at school for six hours.", "de": "Ich bin sechs Stunden in der Schule.", "src": "claude"}], "pk": "Seite 30"},
+      {"en": "lunch", "de": "Mittagessen", "pg": 30, "ex": [{"en": "We have lunch at twelve o'clock.", "de": "Um zwölf Uhr essen wir zu Mittag.", "src": "claude"}, {"en": "Lunch is in the canteen.", "de": "Mittagessen gibt es in der Kantine.", "src": "claude"}, {"en": "Is it time for lunch?", "de": "Ist es Zeit fürs Mittagessen?", "src": "claude"}, {"en": "I eat lunch with my friends.", "de": "Ich esse mit meinen Freunden zu Mittag.", "src": "claude"}], "pk": "Seite 30"},
+      {"en": "break", "de": "Pause", "pg": 30, "ex": [{"en": "The break is short.", "de": "Die Pause ist kurz.", "src": "claude"}, {"en": "We play football in the break.", "de": "In der Pause spielen wir Fußball.", "src": "claude"}, {"en": "Break is at quarter past ten.", "de": "Die Pause ist um Viertel nach zehn.", "src": "claude"}, {"en": "Is it break now?", "de": "Ist jetzt Pause?", "src": "claude"}], "pk": "Seite 30"},
+      {"en": "(to) learn", "de": "lernen", "pg": 30, "ex": [{"en": "I learn English at school.", "de": "Ich lerne in der Schule Englisch.", "src": "claude"}, {"en": "We learn new words.", "de": "Wir lernen neue Wörter.", "src": "claude"}, {"en": "Do you learn French?", "de": "Lernst du Französisch?", "src": "claude"}, {"en": "Lily learns new things.", "de": "Lily lernt neue Dinge.", "src": "claude"}], "pk": "Seite 30"},
+      {"en": "when?", "de": "wann?", "pg": 30, "ex": [{"en": "When is the lunch break at your school?", "de": "Wann ist an deiner Schule die Mittagspause?", "src": "buch"}, {"en": "When is your birthday?", "de": "Wann hast du Geburtstag?", "src": "claude"}, {"en": "When do we start?", "de": "Wann fangen wir an?", "src": "claude"}, {"en": "When is PE?", "de": "Wann ist Sport?", "src": "claude"}], "pk": "Seite 30"},
+      {"en": "Mr Brown", "de": "Herr Brown", "pg": 30, "ex": [{"en": "Mr Brown is our teacher.", "de": "Herr Brown ist unser Lehrer.", "src": "claude"}, {"en": "Hello, Mr Brown.", "de": "Hallo, Herr Brown.", "src": "claude"}, {"en": "Mr Brown is friendly.", "de": "Herr Brown ist freundlich.", "src": "claude"}, {"en": "Is Mr Brown at school today?", "de": "Ist Herr Brown heute in der Schule?", "src": "claude"}], "pk": "Seite 30"},
+      {"en": "Mrs Brown", "de": "Frau Brown", "pg": 30, "ex": [{"en": "Mrs Brown is a teacher.", "de": "Frau Brown ist Lehrerin.", "src": "claude"}, {"en": "Good morning, Mrs Brown.", "de": "Guten Morgen, Frau Brown.", "src": "claude"}, {"en": "Mrs Brown is friendly.", "de": "Frau Brown ist freundlich.", "src": "claude"}, {"en": "Is Mrs Brown in the library?", "de": "Ist Frau Brown in der Bücherei?", "src": "claude"}], "pk": "Seite 30"},
+      {"en": "letter", "de": "Buchstabe", "pg": 30, "ex": [{"en": "This is a letter.", "de": "Das ist ein Buchstabe.", "src": "claude"}, {"en": "What's the first letter?", "de": "Was ist der erste Buchstabe?", "src": "claude"}, {"en": "There are 26 letters in English.", "de": "Das englische Alphabet hat 26 Buchstaben.", "src": "claude"}, {"en": "Write the letter A.", "de": "Schreib den Buchstaben A.", "src": "claude"}], "pk": "Seite 30"},
+      {"en": "only", "de": "nur, bloß", "pg": 30, "ex": [{"en": "The short break is only 20 minutes long.", "de": "Die kleine Pause ist nur 20 Minuten lang.", "src": "buch"}, {"en": "I have only one pen.", "de": "Ich habe nur einen Stift.", "src": "claude"}, {"en": "It's only eight o'clock.", "de": "Es ist erst acht Uhr.", "src": "claude"}, {"en": "Only Maya knows the answer.", "de": "Nur Maya weiß die Antwort.", "src": "claude"}], "pk": "Seite 30"},
+      {"en": "month", "de": "Monat", "pg": 31, "ex": [{"en": "There are twelve months in a year.", "de": "Ein Jahr hat zwölf Monate.", "src": "claude"}, {"en": "January is the first month.", "de": "Der Januar ist der erste Monat.", "src": "claude"}, {"en": "Which month is it?", "de": "Welcher Monat ist es?", "src": "claude"}, {"en": "My birthday month is May.", "de": "Mein Geburtstagsmonat ist der Mai.", "src": "claude"}], "pk": "Seite 31 · Päckchen 1 von 3"},
+      {"en": "January", "de": "Januar", "pg": 31, "ex": [{"en": "January is the first month of the year.", "de": "Der Januar ist der erste Monat des Jahres.", "src": "claude"}, {"en": "My birthday is in January.", "de": "Mein Geburtstag ist im Januar.", "src": "claude"}, {"en": "Is your birthday in January?", "de": "Ist dein Geburtstag im Januar?", "src": "claude"}, {"en": "Sam's birthday is on 1st January.", "de": "Sam hat am 1. Januar Geburtstag.", "src": "claude"}], "pk": "Seite 31 · Päckchen 1 von 3"},
+      {"en": "February", "de": "Februar", "pg": 31, "ex": [{"en": "February is after January.", "de": "Der Februar kommt nach dem Januar.", "src": "claude"}, {"en": "My birthday is in February.", "de": "Mein Geburtstag ist im Februar.", "src": "claude"}, {"en": "Is your birthday in February?", "de": "Ist dein Geburtstag im Februar?", "src": "claude"}, {"en": "Lily's birthday is on 2nd February.", "de": "Lily hat am 2. Februar Geburtstag.", "src": "claude"}], "pk": "Seite 31 · Päckchen 1 von 3"},
+      {"en": "March", "de": "März", "pg": 31, "ex": [{"en": "March is after February.", "de": "Der März kommt nach dem Februar.", "src": "claude"}, {"en": "My birthday is in March.", "de": "Mein Geburtstag ist im März.", "src": "claude"}, {"en": "Is your birthday in March?", "de": "Ist dein Geburtstag im März?", "src": "claude"}, {"en": "Max's birthday is on 3rd March.", "de": "Max hat am 3. März Geburtstag.", "src": "claude"}], "pk": "Seite 31 · Päckchen 1 von 3"},
+      {"en": "April", "de": "April", "pg": 31, "ex": [{"en": "April is after March.", "de": "Der April kommt nach dem März.", "src": "claude"}, {"en": "My birthday is in April.", "de": "Mein Geburtstag ist im April.", "src": "claude"}, {"en": "Is your birthday in April?", "de": "Ist dein Geburtstag im April?", "src": "claude"}, {"en": "Nick's birthday is on 4th April.", "de": "Nick hat am 4. April Geburtstag.", "src": "claude"}], "pk": "Seite 31 · Päckchen 1 von 3"},
+      {"en": "May", "de": "Mai", "pg": 31, "ex": [{"en": "May is after April.", "de": "Der Mai kommt nach dem April.", "src": "claude"}, {"en": "My dad's birthday is in May.", "de": "Mein Papa hat im Mai Geburtstag.", "src": "claude"}, {"en": "Is your birthday in May?", "de": "Ist dein Geburtstag im Mai?", "src": "claude"}, {"en": "Maya's birthday is on 5th May.", "de": "Maya hat am 5. Mai Geburtstag.", "src": "claude"}], "pk": "Seite 31 · Päckchen 1 von 3"},
+      {"en": "June", "de": "Juni", "pg": 31, "ex": [{"en": "June is before July.", "de": "Der Juni kommt vor dem Juli.", "src": "claude"}, {"en": "My birthday is in June.", "de": "Mein Geburtstag ist im Juni.", "src": "claude"}, {"en": "Is your birthday in June?", "de": "Ist dein Geburtstag im Juni?", "src": "claude"}, {"en": "Lucy's birthday is on 3rd June.", "de": "Lucy hat am 3. Juni Geburtstag.", "src": "claude"}], "pk": "Seite 31 · Päckchen 1 von 3"},
+      {"en": "July", "de": "Juli", "pg": 31, "ex": [{"en": "July is after June.", "de": "Der Juli kommt nach dem Juni.", "src": "claude"}, {"en": "My birthday is in July.", "de": "Mein Geburtstag ist im Juli.", "src": "claude"}, {"en": "Is your birthday in July?", "de": "Ist dein Geburtstag im Juli?", "src": "claude"}, {"en": "Justin's birthday is on 2nd July.", "de": "Justin hat am 2. Juli Geburtstag.", "src": "claude"}], "pk": "Seite 31 · Päckchen 1 von 3"},
+      {"en": "August", "de": "August", "pg": 31, "ex": [{"en": "My birthday is in August.", "de": "Mein Geburtstag ist im August.", "src": "buch"}, {"en": "August is before September.", "de": "Der August kommt vor dem September.", "src": "claude"}, {"en": "Is your birthday in August?", "de": "Ist dein Geburtstag im August?", "src": "claude"}, {"en": "Tom's birthday is on 5th August.", "de": "Tom hat am 5. August Geburtstag.", "src": "claude"}], "pk": "Seite 31 · Päckchen 1 von 3"},
+      {"en": "October", "de": "Oktober", "pg": 31, "ex": [{"en": "October is before November.", "de": "Der Oktober kommt vor dem November.", "src": "claude"}, {"en": "My birthday is in October.", "de": "Mein Geburtstag ist im Oktober.", "src": "claude"}, {"en": "Is your birthday in October?", "de": "Ist dein Geburtstag im Oktober?", "src": "claude"}, {"en": "Lily's birthday is on 4th October.", "de": "Lily hat am 4. Oktober Geburtstag.", "src": "claude"}], "pk": "Seite 31 · Päckchen 2 von 3"},
+      {"en": "November", "de": "November", "pg": 31, "ex": [{"en": "November is before December.", "de": "Der November kommt vor dem Dezember.", "src": "claude"}, {"en": "My birthday is in November.", "de": "Mein Geburtstag ist im November.", "src": "claude"}, {"en": "Is your birthday in November?", "de": "Ist dein Geburtstag im November?", "src": "claude"}, {"en": "Max's birthday is on 1st November.", "de": "Max hat am 1. November Geburtstag.", "src": "claude"}], "pk": "Seite 31 · Päckchen 2 von 3"},
+      {"en": "December", "de": "Dezember", "pg": 31, "ex": [{"en": "December is the last month of the year.", "de": "Der Dezember ist der letzte Monat des Jahres.", "src": "claude"}, {"en": "My birthday is in December.", "de": "Mein Geburtstag ist im Dezember.", "src": "claude"}, {"en": "Is your birthday in December?", "de": "Ist dein Geburtstag im Dezember?", "src": "claude"}, {"en": "Sam's birthday is on 2nd December.", "de": "Sam hat am 2. Dezember Geburtstag.", "src": "claude"}], "pk": "Seite 31 · Päckchen 2 von 3"},
+      {"en": "second", "de": "zweite(r, s)", "pg": 31, "ex": [{"en": "This is my second book.", "de": "Das ist mein zweites Buch.", "src": "claude"}, {"en": "Read the second sentence.", "de": "Lies den zweiten Satz.", "src": "claude"}, {"en": "Sam is the second boy.", "de": "Sam ist der zweite Junge.", "src": "claude"}, {"en": "Look at the second picture.", "de": "Schau dir das zweite Bild an.", "src": "claude"}], "pk": "Seite 31 · Päckchen 2 von 3"},
+      {"en": "third", "de": "dritte(r, s)", "pg": 31, "ex": [{"en": "March is the third month.", "de": "Der März ist der dritte Monat.", "src": "claude"}, {"en": "Look at the third question.", "de": "Schau dir die dritte Frage an.", "src": "claude"}, {"en": "The third student is Maya.", "de": "Die dritte Schülerin ist Maya.", "src": "claude"}, {"en": "Third, write your name.", "de": "Drittens: Schreib deinen Namen.", "src": "claude"}], "pk": "Seite 31 · Päckchen 2 von 3"},
+      {"en": "one", "de": "eins", "pg": 31, "ex": [{"en": "There is one book here.", "de": "Hier ist ein Buch.", "src": "claude"}, {"en": "Count: one, two, three.", "de": "Zähle: eins, zwei, drei.", "src": "claude"}, {"en": "Page one is easy.", "de": "Seite eins ist leicht.", "src": "claude"}, {"en": "One plus one is two.", "de": "Eins plus eins ist zwei.", "src": "claude"}], "pk": "Seite 31 · Päckchen 2 von 3"},
+      {"en": "two", "de": "zwei", "pg": 31, "ex": [{"en": "Two students are late.", "de": "Zwei Schüler sind zu spät.", "src": "claude"}, {"en": "Two plus two is four.", "de": "Zwei plus zwei ist vier.", "src": "claude"}, {"en": "Read page two.", "de": "Lies Seite zwei.", "src": "claude"}, {"en": "My two friends are here.", "de": "Meine zwei Freunde sind hier.", "src": "claude"}], "pk": "Seite 31 · Päckchen 2 von 3"},
+      {"en": "three", "de": "drei", "pg": 31, "ex": [{"en": "Three boys are in the gym.", "de": "Drei Jungen sind in der Turnhalle.", "src": "claude"}, {"en": "Three plus two is five.", "de": "Drei plus zwei ist fünf.", "src": "claude"}, {"en": "Look at question three.", "de": "Schau dir Frage drei an.", "src": "claude"}, {"en": "I have three pens.", "de": "Ich habe drei Stifte.", "src": "claude"}], "pk": "Seite 31 · Päckchen 2 von 3"},
+      {"en": "four", "de": "vier", "pg": 31, "ex": [{"en": "Four girls are here.", "de": "Vier Mädchen sind hier.", "src": "claude"}, {"en": "Four plus one is five.", "de": "Vier plus eins ist fünf.", "src": "claude"}, {"en": "Page four is short.", "de": "Seite vier ist kurz.", "src": "claude"}, {"en": "There are four books.", "de": "Es sind vier Bücher.", "src": "claude"}], "pk": "Seite 31 · Päckchen 3 von 3"},
+      {"en": "five", "de": "fünf", "pg": 31, "ex": [{"en": "Five students are late.", "de": "Fünf Schüler sind zu spät.", "src": "claude"}, {"en": "Five minus one is four.", "de": "Fünf minus eins ist vier.", "src": "claude"}, {"en": "Read page five.", "de": "Lies Seite fünf.", "src": "claude"}, {"en": "I have five friends.", "de": "Ich habe fünf Freunde.", "src": "claude"}], "pk": "Seite 31 · Päckchen 3 von 3"},
+      {"en": "first", "de": "erste(r, s)", "pg": 31, "ex": [{"en": "First, write your name.", "de": "Schreib zuerst deinen Namen.", "src": "claude"}, {"en": "January is the first month.", "de": "Der Januar ist der erste Monat.", "src": "claude"}, {"en": "My first lesson is maths.", "de": "Meine erste Stunde ist Mathe.", "src": "claude"}, {"en": "Sam is first.", "de": "Sam ist Erster.", "src": "claude"}], "pk": "Seite 31 · Päckchen 3 von 3"},
+      {"en": "fourth", "de": "vierte(r, s)", "pg": 31, "ex": [{"en": "April is the fourth month.", "de": "Der April ist der vierte Monat.", "src": "claude"}, {"en": "The fourth question is easy.", "de": "Die vierte Frage ist leicht.", "src": "claude"}, {"en": "Look at the fourth picture.", "de": "Schau dir das vierte Bild an.", "src": "claude"}, {"en": "This is my fourth book.", "de": "Das ist mein viertes Buch.", "src": "claude"}], "pk": "Seite 31 · Päckchen 3 von 3"},
+      {"en": "fifth", "de": "fünfte(r, s)", "pg": 31, "ex": [{"en": "May is the fifth month.", "de": "Der Mai ist der fünfte Monat.", "src": "claude"}, {"en": "Read the fifth sentence.", "de": "Lies den fünften Satz.", "src": "claude"}, {"en": "Lily is the fifth student.", "de": "Lily ist die fünfte Schülerin.", "src": "claude"}, {"en": "You say: Sam's birthday is on the fifth of May.", "de": "Man sagt: Sam hat am fünften Mai Geburtstag.", "src": "claude"}], "pk": "Seite 31 · Päckchen 3 von 3"},
+      {"en": "date", "de": "Datum", "pg": 31, "ex": [{"en": "What's the date today?", "de": "Welches Datum ist heute?", "src": "claude"}, {"en": "Write the date in your book.", "de": "Schreib das Datum in dein Heft.", "src": "claude"}, {"en": "The date is 5th May.", "de": "Heute ist der 5. Mai.", "src": "claude"}, {"en": "Do you know the date?", "de": "Weißt du das Datum?", "src": "claude"}], "pk": "Seite 31 · Päckchen 3 von 3"},
+      {"en": "hill", "de": "Hügel", "pg": 31, "ex": [{"en": "The hill is big.", "de": "Der Hügel ist groß.", "src": "claude"}, {"en": "Look at the hill.", "de": "Schau dir den Hügel an.", "src": "claude"}, {"en": "There is a hill in Plymouth.", "de": "In Plymouth gibt es einen Hügel.", "src": "claude"}, {"en": "The school is on a hill.", "de": "Die Schule liegt auf einem Hügel.", "src": "claude"}], "pk": "Seite 31 · Päckchen 3 von 3"},
+      {"en": "(to) write", "de": "schreiben", "pg": 31, "ex": [{"en": "Write your name.", "de": "Schreib deinen Namen.", "src": "claude"}, {"en": "I write a letter.", "de": "Ich schreibe einen Brief.", "src": "claude"}, {"en": "Can you write the date?", "de": "Kannst du das Datum schreiben?", "src": "claude"}, {"en": "We write sentences in class.", "de": "Im Unterricht schreiben wir Sätze.", "src": "claude"}], "pk": "Seite 31 · Päckchen 3 von 3"},
+      {"en": "(to) find", "de": "finden", "pg": 32, "ex": [{"en": "Max, find Nick!", "de": "Max, finde Nick!", "src": "buch"}, {"en": "Find the word.", "de": "Finde das Wort.", "src": "claude"}, {"en": "I can't find my pen.", "de": "Ich kann meinen Stift nicht finden.", "src": "claude"}, {"en": "Can you find the library?", "de": "Kannst du die Bücherei finden?", "src": "claude"}], "pk": "Seite 32 · Päckchen 1 von 3"},
+      {"en": "(to) count (to)", "de": "zählen (bis)", "pg": 32, "ex": [{"en": "Can you count to 100?", "de": "Kannst du bis 100 zählen?", "src": "buch"}, {"en": "Count to ten, please.", "de": "Zähle bitte bis zehn.", "src": "claude"}, {"en": "We count the books.", "de": "Wir zählen die Bücher.", "src": "claude"}, {"en": "I can count to twenty.", "de": "Ich kann bis zwanzig zählen.", "src": "claude"}], "pk": "Seite 32 · Päckchen 1 von 3"},
+      {"en": "Are there any ...?", "de": "Gibt es (irgendwelche) ...?", "pg": 32, "ex": [{"en": "Are there any English students at your school?", "de": "Gibt es an deiner Schule englische Schüler?", "src": "buch"}, {"en": "Are there any books in the library?", "de": "Gibt es Bücher in der Bücherei?", "src": "claude"}, {"en": "Are there any questions?", "de": "Gibt es Fragen?", "src": "claude"}, {"en": "Are there any trainers here?", "de": "Gibt es hier Turnschuhe?", "src": "claude"}], "pk": "Seite 32 · Päckchen 1 von 3"},
+      {"en": "(to) spell", "de": "buchstabieren", "pg": 32, "ex": [{"en": "Spell your name, please.", "de": "Buchstabiere bitte deinen Namen.", "src": "claude"}, {"en": "Can you spell \"friend\"?", "de": "Kannst du „friend“ buchstabieren?", "src": "claude"}, {"en": "I can't spell this word.", "de": "Ich kann dieses Wort nicht buchstabieren.", "src": "claude"}, {"en": "Spell the word again.", "de": "Buchstabiere das Wort noch einmal.", "src": "claude"}], "pk": "Seite 32 · Päckchen 1 von 3"},
+      {"en": "(to) work", "de": "arbeiten", "pg": 32, "ex": [{"en": "I work at home.", "de": "Ich arbeite zu Hause.", "src": "claude"}, {"en": "My mum and dad work in a school.", "de": "Meine Mama und mein Papa arbeiten in einer Schule.", "src": "claude"}, {"en": "We work in class.", "de": "Wir arbeiten im Unterricht.", "src": "claude"}, {"en": "Sam, work with Lily.", "de": "Sam, arbeite mit Lily zusammen.", "src": "claude"}], "pk": "Seite 32 · Päckchen 1 von 3"},
+      {"en": "(to) read", "de": "lesen", "pg": 32, "ex": [{"en": "Read the sentence.", "de": "Lies den Satz.", "src": "claude"}, {"en": "I read a book.", "de": "Ich lese ein Buch.", "src": "claude"}, {"en": "Can you read this word?", "de": "Kannst du dieses Wort lesen?", "src": "claude"}, {"en": "We read in the library.", "de": "Wir lesen in der Bücherei.", "src": "claude"}], "pk": "Seite 32 · Päckchen 1 von 3"},
+      {"en": "(to) watch", "de": "sich etwas anschauen; beobachten", "pg": 32, "ex": [{"en": "Can I watch a DVD?", "de": "Darf ich eine DVD anschauen?", "src": "buch"}, {"en": "Let's watch the seals.", "de": "Lass uns die Robben beobachten.", "src": "buch"}, {"en": "We watch a film in class.", "de": "Im Unterricht schauen wir einen Film.", "src": "claude"}, {"en": "Watch the ball!", "de": "Beobachte den Ball!", "src": "claude"}], "pk": "Seite 32 · Päckchen 1 von 3"},
+      {"en": "look", "de": "(hin)schauen", "pg": 32, "ex": [{"en": "Look at the picture.", "de": "Schau dir das Bild an.", "src": "buch"}, {"en": "Look at me.", "de": "Schau mich an.", "src": "claude"}, {"en": "Look, there's Sam!", "de": "Schau, da ist Sam!", "src": "claude"}, {"en": "Look at the library.", "de": "Schau dir die Bücherei an.", "src": "claude"}], "pk": "Seite 32 · Päckchen 1 von 3"},
+      {"en": "see", "de": "sehen", "pg": 32, "ex": [{"en": "Can you see the cat?", "de": "Kannst du die Katze sehen?", "src": "buch"}, {"en": "I see my friends.", "de": "Ich sehe meine Freunde.", "src": "claude"}, {"en": "Can you see the ball?", "de": "Kannst du den Ball sehen?", "src": "claude"}, {"en": "Do you see the hill?", "de": "Siehst du den Hügel?", "src": "claude"}], "pk": "Seite 32 · Päckchen 2 von 3"},
+      {"en": "(to) fall asleep", "de": "einschlafen", "pg": 32, "ex": [{"en": "I fall asleep at ten o'clock.", "de": "Ich schlafe um zehn Uhr ein.", "src": "claude"}, {"en": "Don't fall asleep in class.", "de": "Schlaf im Unterricht nicht ein.", "src": "claude"}, {"en": "Dad falls asleep at home.", "de": "Papa schläft zu Hause ein.", "src": "claude"}, {"en": "Do you fall asleep at nine o'clock?", "de": "Schläfst du um neun Uhr ein?", "src": "claude"}], "pk": "Seite 32 · Päckchen 2 von 3"},
+      {"en": "this place/break/subject", "de": "dieser Ort / diese Pause / dieses Fach", "pg": 32, "ex": [{"en": "This place is nice.", "de": "Dieser Ort ist schön.", "src": "claude"}, {"en": "This break is only twenty minutes.", "de": "Diese Pause dauert nur zwanzig Minuten.", "src": "claude"}, {"en": "Is this subject easy?", "de": "Ist dieses Fach leicht?", "src": "claude"}, {"en": "I like this place.", "de": "Ich mag diesen Ort.", "src": "claude"}], "pk": "Seite 32 · Päckchen 2 von 3"},
+      {"en": "I don't know.", "de": "Ich weiß (es) nicht.", "pg": 32, "ex": [{"en": "I don't know.", "de": "Ich weiß es nicht.", "src": "claude"}, {"en": "Sorry, I don't know the word.", "de": "Tut mir leid, ich kenne das Wort nicht.", "src": "claude"}, {"en": "I don't know his name.", "de": "Ich weiß seinen Namen nicht.", "src": "claude"}, {"en": "I don't know where it is.", "de": "Ich weiß nicht, wo es ist.", "src": "claude"}], "pk": "Seite 32 · Päckchen 2 von 3"},
+      {"en": "them", "de": "sie; ihnen", "pg": 32, "ex": [{"en": "Look, there are the boys. Can you see them?", "de": "Schau, da sind die Jungen. Kannst du sie sehen?", "src": "buch"}, {"en": "Let's talk to them.", "de": "Lass uns mit ihnen sprechen.", "src": "buch"}, {"en": "I like them.", "de": "Ich mag sie.", "src": "claude"}, {"en": "Ask them, please.", "de": "Frag sie bitte.", "src": "claude"}], "pk": "Seite 32 · Päckchen 2 von 3"},
+      {"en": "(to) eat", "de": "essen", "pg": 32, "ex": [{"en": "I eat lunch at school.", "de": "Ich esse in der Schule zu Mittag.", "src": "claude"}, {"en": "Don't eat in class.", "de": "Iss nicht im Unterricht.", "src": "claude"}, {"en": "Do you eat at home?", "de": "Isst du zu Hause?", "src": "claude"}, {"en": "We eat at twelve o'clock.", "de": "Wir essen um zwölf Uhr.", "src": "claude"}], "pk": "Seite 32 · Päckchen 2 von 3"},
+      {"en": "What colour is/are ...?", "de": "Welche Farbe hat/haben ...?", "pg": 32, "ex": [{"en": "What colour is your uniform?", "de": "Welche Farbe hat deine Uniform?", "src": "claude"}, {"en": "What colour are your shoes?", "de": "Welche Farbe haben deine Schuhe?", "src": "claude"}, {"en": "What colour is the ball?", "de": "Welche Farbe hat der Ball?", "src": "claude"}, {"en": "What colour are the trainers?", "de": "Welche Farbe haben die Turnschuhe?", "src": "claude"}], "pk": "Seite 32 · Päckchen 2 von 3"},
+      {"en": "canteen", "de": "Kantine, (Schul-)Mensa", "pg": 32, "ex": [{"en": "We eat in the canteen.", "de": "Wir essen in der Mensa.", "src": "claude"}, {"en": "The canteen is big.", "de": "Die Mensa ist groß.", "src": "claude"}, {"en": "Is the canteen open now?", "de": "Hat die Mensa jetzt offen?", "src": "claude"}, {"en": "I meet my friends in the canteen.", "de": "Ich treffe meine Freunde in der Mensa.", "src": "claude"}], "pk": "Seite 32 · Päckchen 2 von 3"},
+      {"en": "gym", "de": "Turnhalle", "pg": 32, "ex": [{"en": "We play football in the gym.", "de": "Wir spielen in der Turnhalle Fußball.", "src": "claude"}, {"en": "The gym is big.", "de": "Die Turnhalle ist groß.", "src": "claude"}, {"en": "Meet me in the gym.", "de": "Triff mich in der Turnhalle.", "src": "claude"}, {"en": "Is the gym open?", "de": "Ist die Turnhalle offen?", "src": "claude"}], "pk": "Seite 32 · Päckchen 3 von 3"},
+      {"en": "We're finished.", "de": "Wir sind fertig.", "pg": 32, "ex": [{"en": "We're finished. What can we do now?", "de": "Wir sind fertig. Was können wir jetzt machen?", "src": "buch"}, {"en": "We're finished, Miss Bell.", "de": "Wir sind fertig, Frau Bell.", "src": "claude"}, {"en": "Are you finished?", "de": "Seid ihr fertig?", "src": "claude"}, {"en": "We're finished, so let's go home.", "de": "Wir sind fertig, also lasst uns nach Hause gehen.", "src": "claude"}], "pk": "Seite 32 · Päckchen 3 von 3"},
+      {"en": "back", "de": "zurück", "pg": 32, "ex": [{"en": "I'm back!", "de": "Ich bin zurück!", "src": "claude"}, {"en": "Come back, Sam.", "de": "Komm zurück, Sam.", "src": "claude"}, {"en": "Go back to the classroom.", "de": "Geh zurück ins Klassenzimmer.", "src": "claude"}, {"en": "Maya is back at school.", "de": "Maya ist wieder in der Schule.", "src": "claude"}], "pk": "Seite 32 · Päckchen 3 von 3"},
+      {"en": "we can't ...", "de": "wir können nicht ...", "pg": 32, "ex": [{"en": "I can speak English, but I can't speak French.", "de": "Ich kann Englisch sprechen, aber ich kann kein Französisch sprechen.", "src": "buch"}, {"en": "We can't find the ball.", "de": "Wir können den Ball nicht finden.", "src": "claude"}, {"en": "We can't go now.", "de": "Wir können jetzt nicht gehen.", "src": "claude"}, {"en": "We can't read this word.", "de": "Wir können dieses Wort nicht lesen.", "src": "claude"}], "pk": "Seite 32 · Päckchen 3 von 3"},
+      {"en": "(to) win", "de": "gewinnen", "pg": 32, "ex": [{"en": "We can win.", "de": "Wir können gewinnen.", "src": "claude"}, {"en": "I want to win.", "de": "Ich will gewinnen.", "src": "claude"}, {"en": "Do you want to win?", "de": "Willst du gewinnen?", "src": "claude"}, {"en": "Sam and Max win the game.", "de": "Sam und Max gewinnen das Spiel.", "src": "claude"}], "pk": "Seite 32 · Päckchen 3 von 3"},
+      {"en": "him", "de": "ihn; ihm", "pg": 32, "ex": [{"en": "Look, there's Sam. Can you see him?", "de": "Schau, da ist Sam. Kannst du ihn sehen?", "src": "buch"}, {"en": "Let's help him.", "de": "Lass uns ihm helfen.", "src": "buch"}, {"en": "I like him.", "de": "Ich mag ihn.", "src": "claude"}, {"en": "Ask him, please.", "de": "Frag ihn bitte.", "src": "claude"}], "pk": "Seite 32 · Päckchen 3 von 3"},
+      {"en": "winner", "de": "Gewinner/in, Sieger/in", "pg": 32, "ex": [{"en": "The winner is Maya.", "de": "Die Gewinnerin ist Maya.", "src": "claude"}, {"en": "Who is the winner?", "de": "Wer ist der Gewinner?", "src": "claude"}, {"en": "Sam is the winner today.", "de": "Sam ist heute der Gewinner.", "src": "claude"}, {"en": "The winner is happy.", "de": "Der Gewinner ist glücklich.", "src": "claude"}], "pk": "Seite 32 · Päckchen 3 von 3"},
+      {"en": "everyday", "de": "Alltags-", "pg": 33, "ex": [{"en": "We learn everyday English.", "de": "Wir lernen Alltagsenglisch.", "src": "claude"}, {"en": "Everyday words are easy.", "de": "Alltagswörter sind leicht.", "src": "claude"}, {"en": "This is an everyday word.", "de": "Das ist ein Alltagswort.", "src": "claude"}, {"en": "Say an everyday sentence.", "de": "Sag einen Satz aus dem Alltag.", "src": "claude"}], "pk": "Seite 33–35"},
+      {"en": "workbook", "de": "Arbeitsheft", "pg": 33, "ex": [{"en": "Open your workbook.", "de": "Schlag dein Arbeitsheft auf.", "src": "claude"}, {"en": "My workbook is blue.", "de": "Mein Arbeitsheft ist blau.", "src": "claude"}, {"en": "Write in your workbook.", "de": "Schreib in dein Arbeitsheft.", "src": "claude"}, {"en": "Where is your workbook?", "de": "Wo ist dein Arbeitsheft?", "src": "claude"}], "pk": "Seite 33–35"},
+      {"en": "page", "de": "Seite", "pg": 33, "ex": [{"en": "What page are we on?", "de": "Auf welcher Seite sind wir?", "src": "buch"}, {"en": "Open your book at page ten.", "de": "Schlag dein Buch auf Seite zehn auf.", "src": "claude"}, {"en": "Look at page 20.", "de": "Schau auf Seite 20.", "src": "claude"}, {"en": "Read the page again.", "de": "Lies die Seite noch einmal.", "src": "claude"}], "pk": "Seite 33–35"},
+      {"en": "toilet", "de": "Toilette", "pg": 33, "ex": [{"en": "Where is the toilet?", "de": "Wo ist die Toilette?", "src": "claude"}, {"en": "The toilet is in the school.", "de": "Die Toilette ist in der Schule.", "src": "claude"}, {"en": "Can I go to the toilet, Miss?", "de": "Darf ich auf die Toilette gehen, Frau Bell?", "src": "claude"}, {"en": "The toilet is over there.", "de": "Die Toilette ist dort drüben.", "src": "claude"}], "pk": "Seite 33–35"},
+      {"en": "What's for homework?", "de": "Was haben wir als Hausaufgabe auf?", "pg": 33, "ex": [{"en": "What's for homework, Miss Bell?", "de": "Was haben wir als Hausaufgabe auf, Frau Bell?", "src": "claude"}, {"en": "What's for homework today?", "de": "Was haben wir heute als Hausaufgabe auf?", "src": "claude"}, {"en": "Sam asks: What's for homework?", "de": "Sam fragt: Was haben wir als Hausaufgabe auf?", "src": "claude"}, {"en": "\"What's for homework?\" – \"Page 20.\"", "de": "„Was haben wir als Hausaufgabe auf?“ – „Seite 20.“", "src": "claude"}], "pk": "Seite 33–35"},
+      {"en": "homework", "de": "Hausaufgabe(n)", "pg": 33, "ex": [{"en": "Do your homework now.", "de": "Mach jetzt deine Hausaufgaben.", "src": "buch"}, {"en": "Where is your homework?", "de": "Wo sind deine Hausaufgaben?", "src": "buch"}, {"en": "I do my homework at 4 o'clock.", "de": "Ich mache meine Hausaufgaben um 4 Uhr.", "src": "claude"}, {"en": "My homework is easy.", "de": "Meine Hausaufgaben sind leicht.", "src": "claude"}], "pk": "Seite 33–35"},
+      {"en": "There aren't any ...", "de": "Es gibt/sind keine ...", "pg": 34, "ex": [{"en": "No, there aren't any cats in my photo.", "de": "Nein, auf meinem Foto sind keine Katzen.", "src": "buch"}, {"en": "There aren't any books here.", "de": "Hier sind keine Bücher.", "src": "claude"}, {"en": "There aren't any students in the library.", "de": "In der Bücherei sind keine Schüler.", "src": "claude"}, {"en": "There aren't any shoes in my bag.", "de": "In meiner Tasche sind keine Schuhe.", "src": "claude"}], "pk": "Seite 33–35"},
+      {"en": "schoolyard", "de": "Schulhof", "pg": 35, "ex": [{"en": "Can we play football in the schoolyard?", "de": "Dürfen wir auf dem Schulhof Fußball spielen?", "src": "buch"}, {"en": "We play in the schoolyard.", "de": "Wir spielen auf dem Schulhof.", "src": "claude"}, {"en": "The schoolyard is big.", "de": "Der Schulhof ist groß.", "src": "claude"}, {"en": "Meet me in the schoolyard.", "de": "Triff mich auf dem Schulhof.", "src": "claude"}], "pk": "Seite 33–35"},
+      {"en": "chaos", "de": "Chaos", "pg": 38, "ex": [{"en": "There is chaos in the classroom.", "de": "Im Klassenzimmer herrscht Chaos.", "src": "claude"}, {"en": "Chaos in the library!", "de": "Chaos in der Bücherei!", "src": "claude"}, {"en": "It's chaos at lunch.", "de": "Beim Mittagessen ist es ein Chaos.", "src": "claude"}, {"en": "The classroom is chaos.", "de": "Das Klassenzimmer ist ein einziges Chaos.", "src": "claude"}], "pk": "Seite 38"},
+      {"en": "corner shop", "de": "Laden an der Ecke; Tante-Emma-Laden", "pg": 38, "ex": [{"en": "My mum is at the corner shop.", "de": "Meine Mama ist im Laden an der Ecke.", "src": "claude"}, {"en": "The corner shop is in our street.", "de": "Der Laden an der Ecke ist in unserer Straße.", "src": "claude"}, {"en": "I go to the corner shop.", "de": "Ich gehe zum Laden an der Ecke.", "src": "claude"}, {"en": "Is the corner shop open?", "de": "Hat der Laden an der Ecke offen?", "src": "claude"}], "pk": "Seite 38"},
+      {"en": "master", "de": "Meister/in", "pg": 38, "ex": [{"en": "Sam is a kung fu master.", "de": "Sam ist ein Kung-Fu-Meister.", "src": "claude"}, {"en": "The master is friendly.", "de": "Der Meister ist freundlich.", "src": "claude"}, {"en": "I want to be a master.", "de": "Ich will ein Meister werden.", "src": "claude"}, {"en": "Is he a master?", "de": "Ist er ein Meister?", "src": "claude"}], "pk": "Seite 38"},
+      {"en": "yoghurt", "de": "Joghurt", "pg": 38, "ex": [{"en": "I eat yoghurt at school.", "de": "Ich esse in der Schule Joghurt.", "src": "claude"}, {"en": "Yoghurt is nice.", "de": "Joghurt ist lecker.", "src": "claude"}, {"en": "Do you like yoghurt?", "de": "Magst du Joghurt?", "src": "claude"}, {"en": "My sister likes yoghurt.", "de": "Meine Schwester mag Joghurt.", "src": "claude"}], "pk": "Seite 38"},
+      {"en": "little", "de": "klein", "pg": 38, "ex": [{"en": "This is Lily, my little sister.", "de": "Das ist Lily, meine kleine Schwester.", "src": "buch"}, {"en": "I have a little brother.", "de": "Ich habe einen kleinen Bruder.", "src": "claude"}, {"en": "The cat is little.", "de": "Die Katze ist klein.", "src": "claude"}, {"en": "A little dog is in the schoolyard.", "de": "Ein kleiner Hund ist auf dem Schulhof.", "src": "claude"}], "pk": "Seite 38"},
+      {"en": "always", "de": "immer", "pg": 39, "ex": [{"en": "I'm always late.", "de": "Ich bin immer zu spät.", "src": "claude"}, {"en": "Sam is always happy.", "de": "Sam ist immer fröhlich.", "src": "claude"}, {"en": "We always say hello.", "de": "Wir sagen immer Hallo.", "src": "claude"}, {"en": "Maya is always friendly.", "de": "Maya ist immer freundlich.", "src": "claude"}], "pk": "Seite 39 · Päckchen 1 von 2"},
+      {"en": "group (of)", "de": "Gruppe", "pg": 39, "ex": [{"en": "A group of girls is in the library.", "de": "Eine Gruppe Mädchen ist in der Bücherei.", "src": "claude"}, {"en": "There is a group of boys in the schoolyard.", "de": "Auf dem Schulhof ist eine Gruppe Jungen.", "src": "claude"}, {"en": "Our group has five students.", "de": "Unsere Gruppe hat fünf Schüler.", "src": "claude"}, {"en": "Work in a group of four.", "de": "Arbeitet in Vierergruppen.", "src": "claude"}], "pk": "Seite 39 · Päckchen 1 von 2"},
+      {"en": "that group", "de": "die Gruppe (dort), jene Gruppe", "pg": 39, "ex": [{"en": "That group is in the gym.", "de": "Die Gruppe dort ist in der Turnhalle.", "src": "claude"}, {"en": "Look at that group.", "de": "Schau dir die Gruppe dort an.", "src": "claude"}, {"en": "Is that group from your school?", "de": "Ist die Gruppe dort von deiner Schule?", "src": "claude"}, {"en": "That group is friendly.", "de": "Die Gruppe dort ist freundlich.", "src": "claude"}], "pk": "Seite 39 · Päckchen 1 von 2"},
+      {"en": "(to) swim", "de": "schwimmen", "pg": 39, "ex": [{"en": "I can swim.", "de": "Ich kann schwimmen.", "src": "claude"}, {"en": "Can you swim?", "de": "Kannst du schwimmen?", "src": "claude"}, {"en": "Lily can swim well.", "de": "Lily kann gut schwimmen.", "src": "claude"}, {"en": "I like to swim.", "de": "Ich schwimme gern.", "src": "claude"}], "pk": "Seite 39 · Päckchen 1 von 2"},
+      {"en": "like boys", "de": "wie Jungen", "pg": 39, "ex": [{"en": "Girls can swim like boys.", "de": "Mädchen können schwimmen wie Jungen.", "src": "claude"}, {"en": "Maya plays football like boys.", "de": "Maya spielt Fußball wie die Jungen.", "src": "claude"}, {"en": "Can girls play like boys?", "de": "Können Mädchen wie Jungen spielen?", "src": "claude"}, {"en": "Lucy throws the ball like boys.", "de": "Lucy wirft den Ball wie die Jungen.", "src": "claude"}], "pk": "Seite 39 · Päckchen 1 von 2"},
+      {"en": "swimmer", "de": "Schwimmer/in", "pg": 39, "ex": [{"en": "Maya is a good swimmer.", "de": "Maya ist eine gute Schwimmerin.", "src": "claude"}, {"en": "Is your brother a swimmer?", "de": "Ist dein Bruder ein Schwimmer?", "src": "claude"}, {"en": "The swimmer is Lily.", "de": "Die Schwimmerin ist Lily.", "src": "claude"}, {"en": "My sister is a swimmer.", "de": "Meine Schwester ist Schwimmerin.", "src": "claude"}], "pk": "Seite 39 · Päckchen 1 von 2"},
+      {"en": "(to) be good at kung fu", "de": "gut sein in Kung-Fu; gut Kung-Fu können", "pg": 39, "ex": [{"en": "Are you good at football?", "de": "Bist du gut im Fußball?", "src": "buch"}, {"en": "I'm good at kung fu.", "de": "Ich bin gut in Kung-Fu.", "src": "claude"}, {"en": "Sam is good at maths.", "de": "Sam ist gut in Mathe.", "src": "claude"}, {"en": "Lily is good at music.", "de": "Lily ist gut in Musik.", "src": "claude"}], "find": ["good at"], "pk": "Seite 39 · Päckchen 1 von 2"},
+      {"en": "feeling", "de": "Gefühl", "pg": 39, "ex": [{"en": "I have a good feeling.", "de": "Ich habe ein gutes Gefühl.", "src": "claude"}, {"en": "This is a happy feeling.", "de": "Das ist ein glückliches Gefühl.", "src": "claude"}, {"en": "Look at the feeling words.", "de": "Schau dir die Gefühlswörter an.", "src": "claude"}, {"en": "Say a feeling word.", "de": "Sag ein Gefühlswort.", "src": "claude"}], "pk": "Seite 39 · Päckchen 1 von 2"},
+      {"en": "happy", "de": "glücklich, froh", "pg": 39, "ex": [{"en": "She's happy.", "de": "Sie ist glücklich.", "src": "buch"}, {"en": "He isn't happy.", "de": "Er ist nicht glücklich.", "src": "buch"}, {"en": "I'm happy today.", "de": "Ich bin heute froh.", "src": "claude"}, {"en": "Why are you happy?", "de": "Warum bist du glücklich?", "src": "claude"}], "pk": "Seite 39 · Päckchen 2 von 2"},
+      {"en": "angry", "de": "wütend", "pg": 39, "ex": [{"en": "Dad is angry.", "de": "Papa ist wütend.", "src": "claude"}, {"en": "Why are you angry?", "de": "Warum bist du wütend?", "src": "claude"}, {"en": "Sam isn't angry.", "de": "Sam ist nicht wütend.", "src": "claude"}, {"en": "The teacher is angry.", "de": "Die Lehrerin ist wütend.", "src": "claude"}], "pk": "Seite 39 · Päckchen 2 von 2"},
+      {"en": "surprised", "de": "überrascht", "pg": 39, "ex": [{"en": "I'm surprised.", "de": "Ich bin überrascht.", "src": "claude"}, {"en": "Maya is surprised.", "de": "Maya ist überrascht.", "src": "claude"}, {"en": "Are you surprised?", "de": "Bist du überrascht?", "src": "claude"}, {"en": "Mum is surprised.", "de": "Mama ist überrascht.", "src": "claude"}], "pk": "Seite 39 · Päckchen 2 von 2"},
+      {"en": "(to) act out", "de": "vorspielen", "pg": 39, "ex": [{"en": "Act out the sentence.", "de": "Spiel den Satz vor.", "src": "claude"}, {"en": "Let's act out the story.", "de": "Lass uns die Geschichte vorspielen.", "src": "claude"}, {"en": "Act out the feeling.", "de": "Spiel das Gefühl vor.", "src": "claude"}, {"en": "Can you act out \"happy\"?", "de": "Kannst du „happy“ vorspielen?", "src": "claude"}], "pk": "Seite 39 · Päckchen 2 von 2"},
+      {"en": "the next picture/question", "de": "das nächste Bild / die nächste Frage", "pg": 39, "ex": [{"en": "Look at the next picture.", "de": "Schau dir das nächste Bild an.", "src": "claude"}, {"en": "Read the next question.", "de": "Lies die nächste Frage.", "src": "claude"}, {"en": "The next question is easy.", "de": "Die nächste Frage ist leicht.", "src": "claude"}, {"en": "What's the next picture?", "de": "Was ist auf dem nächsten Bild?", "src": "claude"}], "pk": "Seite 39 · Päckchen 2 von 2"},
+      {"en": "man, pl men", "de": "Mann", "pg": 39, "ex": [{"en": "The man is Mr Brown.", "de": "Der Mann ist Herr Brown.", "src": "claude"}, {"en": "There is one man in the school.", "de": "In der Schule ist ein Mann.", "src": "claude"}, {"en": "There are three men on the tree.", "de": "Auf dem Baum sind drei Männer.", "src": "claude"}, {"en": "All three men are happy.", "de": "Alle drei Männer sind glücklich.", "src": "claude"}], "pk": "Seite 39 · Päckchen 2 von 2"},
+      {"en": "woman, pl women", "de": "Frau", "pg": 39, "ex": [{"en": "The woman is Miss Bell.", "de": "Die Frau ist Frau Bell.", "src": "claude"}, {"en": "There is one woman in the library.", "de": "In der Bücherei ist eine Frau.", "src": "claude"}, {"en": "There are three women in the library.", "de": "In der Bücherei sind drei Frauen.", "src": "claude"}, {"en": "Look at all the women.", "de": "Schau dir all die Frauen an.", "src": "claude"}], "pk": "Seite 39 · Päckchen 2 von 2"}
     ]
   }
 ];
+
+/* Gleiche oder sehr ähnliche Bedeutung (englisch, wie oben) */
+const VOCAB_SYN = [["mum", "mother", "his mum"], ["dad", "father"], ["look", "see", "(to) watch"], ["help", "(to) help"], ["answer", "(to) answer"], ["when", "when?"], ["time", "What time is it?", "hour"], ["Bye.", "See you."], ["zero", "o"], ["shoe", "trainer"], ["break", "this place/break/subject", "(school) subject"], ["the first day", "their first day", "first"], ["woman, pl women", "Mrs Brown", "Miss Bell"], ["man, pl men", "Mr Brown"], ["So?", "so"], ["group (of)", "that group"], ["(to) know", "I don't know."], ["happy", "nice", "friendly"], ["little", "short"], ["(to) speak", "speaker"], ["(to) win", "winner"], ["(to) swim", "swimmer"], ["(I'm) sorry.", "Thank you."], ["home", "flat"], ["(to) do", "(to) work"], ["(to) learn", "(to) read"], ["one", "a hundred / one hundred"]];
 
 /* =====================================================================
    ÜBUNGSKERN (gemeinsam für Mio-App und Zoo-App)
@@ -598,7 +763,7 @@ const U = {
     return { badA, badB, dist: d[a.length][b.length] };
   },
   /* "fr[ie]nd" -> Set{2,3} */
-  trickySet(w) {
+  trickySet(w, text) {
     const s = new Set();
     if (!w.mark) return s;
     let plain = "", inB = false;
@@ -608,11 +773,30 @@ const U = {
       if (inB) s.add(plain.length);
       plain += c;
     }
-    return plain === w.en ? s : new Set();
+    return plain === (text || w.en) ? s : new Set();
   },
   /* Wort mit farbigen Buchstaben */
   letters(text, set, cls) {
     return [...text].map((c, i) => set && set.has(i) ? `<span class="${cls}">${U.esc(c)}</span>` : U.esc(c)).join("");
+  },
+  /* Schreibweisen eines Eintrags wie im Buch:
+     "(to) know" -> know, to know · "before school/lessons" -> before school, before lessons
+     "a hundred / one hundred" -> beide · "man, pl men" -> man · "..." und ?.! am Ende fallen weg */
+  variants(en) {
+    const s = String(en).replace(/,\s*pl\s.*$/, "").replace(/\.\.\.|…/g, " ");
+    const bases = [s.replace(/\([^)]*\)/g, " "), s.replace(/[()]/g, " ")];
+    const out = [];
+    bases.forEach(b => b.split(/\s+\/\s+/).forEach(part => {
+      let combos = [""];
+      part.trim().split(/\s+/).filter(Boolean).forEach(tok => {
+        const alts = tok.split("/").filter(x => x.length);
+        const next = [];
+        combos.forEach(c => alts.forEach(a => next.push((c + " " + a).trim())));
+        combos = next;
+      });
+      combos.forEach(c => { c = c.replace(/[\s.?!]+$/, "").replace(/\s+/g, " ").trim(); if (c && !out.includes(c)) out.push(c); });
+    }));
+    return out.length ? out : [String(en)];
   },
   wordRegex(en) { return new RegExp("(^|[^A-Za-z'])(" + en.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + ")(?![A-Za-z])", "i"); },
   inputAttrs: 'autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" enterkeyhint="done"'
@@ -623,14 +807,34 @@ const Data = {
   sets: [], words: [], byId: {},
   load(sets) {
     this.sets = sets.map(s => {
-      const words = s.words.map((w, i) => Object.assign({}, w, { id: s.id + ":" + w.en, setId: s.id, order: i, ex: w.ex || [] }));
+      const words = s.words.map((w, i) => {
+        const forms = U.variants(w.en);
+        const pl = /,\s*pl\s+(.+)$/.exec(w.en);           // "man, pl men" -> "men" im Satz erkennen
+        const find = forms.concat(pl ? [pl[1].trim()] : [], w.find || []);
+        const sayForm = U.variants(String(w.en).replace(/\s*\([^)]*\)\s*$/, "").replace(/[()]/g, ""))[0];
+        if (!w.say && !forms.includes(sayForm)) forms.push(sayForm);   // was vorgelesen wird, zählt auch beim Tippen
+        return Object.assign({}, w, { id: s.id + ":" + w.en, setId: s.id, order: i, ex: w.ex || [],
+          forms, find, say: w.say || sayForm,
+          // ganz offene Einträge ("about me/you/...") nur als Bedeutung üben
+          sp: /\/\s*(\.\.\.|…)/.test(w.en) ? null : forms[0] });
+      });
       return Object.assign({}, s, { words });
     });
     this.words = this.sets.flatMap(s => s.words);
     this.words.forEach(w => this.byId[w.id] = w);
+    const groups = (typeof VOCAB_SYN !== "undefined" ? VOCAB_SYN : []);
+    this.words.forEach(w => { w.syn = new Set(); });
+    groups.forEach((g, gi) => this.words.filter(w => g.includes(w.en)).forEach(w => w.syn.add(gi)));
+  },
+  related(a, b) { for (const g of a.syn || []) if (b.syn && b.syn.has(g)) return true; return false; },
+  /* Welche Schreibweise steckt im Satz? -> { form, match } oder null */
+  findIn(w, sentence) {
+    const forms = (w.find || w.forms || [w.en]).slice().sort((a, b) => b.length - a.length);
+    for (const f of forms) { const m = U.wordRegex(f).exec(sentence); if (m) return { form: f, text: m[2] }; }
+    return null;
   },
   set(id) { return this.sets.find(s => s.id === id); },
-  sentencesWith(w) { return w.ex.filter(e => U.wordRegex(w.en).test(e.en)); }
+  sentencesWith(w) { return w.ex.filter(e => this.findIn(w, e.en)); }
 };
 
 /* ---------- Speicher (nur auf diesem Gerät) ---------- */
@@ -671,7 +875,11 @@ const Plan = {
   },
   packs(setId) {
     const set = Data.set(setId);
-    const chunks = U.chunk(set.words, CONFIG.PACK_SIZE);
+    let chunks;
+    if (set.words.every(w => w.pk)) {
+      chunks = [];
+      set.words.forEach(w => { const last = chunks[chunks.length - 1]; if (last && last.label === w.pk) last.push(w); else { const c = [w]; c.label = w.pk; chunks.push(c); } });
+    } else chunks = U.chunk(set.words, CONFIG.PACK_SIZE);
     let prevDone = true;
     return chunks.map((words, index) => {
       const learned = words.filter(w => this.isLearned(w)).length;
@@ -679,7 +887,7 @@ const Plan = {
       const started = words.some(w => Store.data.words[w.id] && Store.data.words[w.id].seen > 0);
       const unlocked = prevDone;
       prevDone = done;
-      return { setId, index, words, learned, done, started, unlocked };
+      return { setId, index, words, learned, done, started, unlocked, label: words.label || ("Päckchen " + (index + 1)) };
     });
   },
   nextPack(setId) { return this.packs(setId).find(p => p.unlocked && !p.done) || null; },
@@ -748,9 +956,9 @@ const Plan = {
 
 /* ---------- Lektionen zusammenstellen ---------- */
 const Builder = {
-  pickReview(n, exclude) {
+  pickReview(n, exclude, setId) {
     const ex = new Set((exclude || []).map(w => w.id));
-    return Plan.dueWords().filter(w => !ex.has(w.id)).slice(0, n);
+    return Plan.dueWords().filter(w => !ex.has(w.id) && (!setId || w.setId === setId)).slice(0, n);
   },
   newLesson(setId, packIndex) {
     const pack = Plan.packs(setId)[packIndex];
@@ -786,11 +994,11 @@ const Builder = {
     return Math.random() < 0.5 ? "s" : "m";
   },
   /* Reiner Wiederholungsmodus (alle Sets) */
-  reviewLesson(n, fillWeak) {
-    let words = this.pickReview(n || CONFIG.REVIEW_LESSON_SIZE);
+  reviewLesson(n, fillWeak, setId) {
+    let words = this.pickReview(n || CONFIG.REVIEW_LESSON_SIZE, null, setId);
     if (fillWeak && words.length < n) {
       const have = new Set(words.map(w => w.id));
-      const weak = Plan.learnedWords().filter(w => !have.has(w.id))
+      const weak = Plan.learnedWords().filter(w => !have.has(w.id) && (!setId || w.setId === setId))
         .sort((a, b) => (Plan.isHard(b) - Plan.isHard(a)) || (Store.data.words[a.id].box - Store.data.words[b.id].box));
       words = words.concat(U.shuffle(weak.slice(0, Math.max(n * 2, 8))).slice(0, n - words.length));
     }
@@ -1121,7 +1329,7 @@ const Lesson = {
     body.innerHTML = `
       <div class="badges">${item.again ? `<span class="badge retry">👀 Schau noch einmal genau hin</span>` : `<span class="badge new">✨ Neues Wort</span>`}</div>
       <div class="intro-card">
-        <div class="intro-word"><span>${U.letters(w.en, tricky, "tricky")}</span> ${Speech.btn(w.en)}</div>
+        <div class="intro-word"><span>${U.letters(w.en, tricky, "tricky")}</span> ${Speech.btn(w.say)}</div>
         <div class="intro-de">${U.esc(w.de)}</div>
         ${tricky.size ? `<div class="intro-tip">Achtung bei den <span class="tricky">farbigen</span> Buchstaben!</div>` : ""}
         ${w.hint ? `<div class="hint">💡 ${U.esc(w.hint)}</div>` : ""}
@@ -1130,7 +1338,7 @@ const Lesson = {
     Ex.bindSay(body);
     foot.innerHTML = `<button class="btn primary big" data-next>Weiter</button>`;
     foot.querySelector("[data-next]").onclick = () => { Sound.play("tap"); this.idx++; this.render(); };
-    Speech.say(w.en);
+    Speech.say(w.say);
   },
 
   /* Antwort auswerten */
@@ -1288,7 +1496,7 @@ const Ex = {
       if (attempts >= 2) lvl = 1;
       if (lvl === 3 && !(Speech.ok && Store.data.settings.speech)) lvl = 2;
       if (lvl === 2 && item.retry && used.includes("spell_gap") && attempts >= 1) lvl = 1;
-      return ["spell_tiles", "spell_gap", "spell_listen"][lvl - 1];
+      if (w.sp) return ["spell_tiles", "spell_gap", "spell_listen"][lvl - 1];
     }
     const hasS = Data.sentencesWith(w).length > 0;
     const hasDeS = w.ex.some(e => e.de && e.en.split(" ").length <= 9);
@@ -1310,11 +1518,13 @@ const Ex = {
   },
 
   distractors(w, field, n) {
-    const same = Data.words.filter(x => x.id !== w.id && x.setId === w.setId && x[field].toLowerCase() !== w[field].toLowerCase());
-    const other = Data.words.filter(x => x.id !== w.id && x.setId !== w.setId && x[field].toLowerCase() !== w[field].toLowerCase());
+    const val = x => String(x[field] || x.en).toLowerCase();
+    const okX = x => x.id !== w.id && val(x) !== val(w) && !Data.related(w, x) && (field !== "sp" || x.sp);
+    const same = Data.words.filter(x => okX(x) && x.setId === w.setId);
+    const other = Data.words.filter(x => okX(x) && x.setId !== w.setId);
     const pool = U.shuffle(same).concat(U.shuffle(other));
-    const out = [], seen = new Set([w[field].toLowerCase()]);
-    for (const x of pool) { if (!seen.has(x[field].toLowerCase())) { seen.add(x[field].toLowerCase()); out.push(x); } if (out.length >= n) break; }
+    const out = [], seen = new Set([val(w)]);
+    for (const x of pool) { if (!seen.has(val(x))) { seen.add(val(x)); out.push(x); } if (out.length >= n) break; }
     return out;
   },
 
@@ -1350,10 +1560,10 @@ const Ex = {
     const ds = this.distractors(w, "de", 3);
     const all = U.shuffle([w].concat(ds));
     body.innerHTML = this.head(item, "Was heißt das auf Deutsch?") +
-      `<div class="prompt big-word">${U.esc(w.en)} ${Speech.btn(w.en)}</div><div class="options"></div>`;
+      `<div class="prompt big-word">${U.esc(w.en)} ${Speech.btn(w.say)}</div><div class="options"></div>`;
     this.bindSay(body);
     this.mcOptions(item, body, all.map(x => U.esc(x.de)), all.indexOf(w), ok => Lesson.answer(item, ok, { correct: w.de }));
-    Speech.say(w.en);
+    Speech.say(w.say);
   },
 
   mc_de_en(item, body) {
@@ -1362,25 +1572,28 @@ const Ex = {
     const all = U.shuffle([w].concat(ds));
     body.innerHTML = this.head(item, "Wähle das englische Wort.") +
       `<div class="prompt big-word de">${U.esc(w.de)}</div><div class="options"></div>`;
-    this.mcOptions(item, body, all.map(x => U.esc(x.en)), all.indexOf(w), ok => Lesson.answer(item, ok, { correct: w.en, sayAfter: w.en }));
+    this.mcOptions(item, body, all.map(x => U.esc(x.en)), all.indexOf(w), ok => Lesson.answer(item, ok, { correct: w.en, sayAfter: w.say }));
   },
 
   cloze_mc(item, body) {
     const w = item.w, s = this.sentence(item);
-    const html = U.esc(s.en).replace(U.wordRegex(U.esc(w.en)), (m, pre) => pre + `<span class="gap">_____</span>`);
-    const ds = this.distractors(w, "en", 2);
+    const hit = Data.findIn(w, s.en) || { form: w.en, text: w.en };
+    const html = U.esc(s.en).replace(U.wordRegex(U.esc(hit.form)), (m, pre) => pre + `<span class="gap">_____</span>`);
+    const ds = this.distractors(w, "sp", 2);
     const all = U.shuffle([w].concat(ds));
+    const right = /^[A-Z]/.test(hit.form) ? hit.text : hit.text.charAt(0).toLowerCase() + hit.text.slice(1);
     body.innerHTML = this.head(item, "Welches Wort passt in die Lücke?") +
       `<div class="prompt sentence">${html}</div>${s.de ? `<div class="help-de">${U.esc(s.de)}</div>` : ""}<div class="options"></div>`;
-    this.mcOptions(item, body, all.map(x => U.esc(x.en)), all.indexOf(w), ok => Lesson.answer(item, ok, {
+    this.mcOptions(item, body, all.map(x => U.esc(x === w ? right : x.sp)), all.indexOf(w), ok => Lesson.answer(item, ok, {
       correctHtml: `<div class="full-sent">${U.esc(s.en)} ${Speech.btn(s.en, "small")}</div>`,
-      html: `Richtig ist: <b>${U.esc(w.en)}</b><div class="full-sent">${U.esc(s.en)} ${Speech.btn(s.en, "small")}</div>`,
+      html: `Richtig ist: <b>${U.esc(right)}</b><div class="full-sent">${U.esc(s.en)} ${Speech.btn(s.en, "small")}</div>`,
       sayAfter: s.en }));
   },
 
   context(item, body) {
     const w = item.w, s = this.sentence(item);
-    const html = U.esc(s.en).replace(U.wordRegex(U.esc(w.en)), (m, pre, word) => pre + `<span class="hl">${word}</span>`);
+    const hit = Data.findIn(w, s.en) || { form: w.en };
+    const html = U.esc(s.en).replace(U.wordRegex(U.esc(hit.form)), (m, pre, word) => pre + `<span class="hl">${word}</span>`);
     const ds = this.distractors(w, "de", 3);
     const all = U.shuffle([w].concat(ds));
     body.innerHTML = this.head(item, "Was bedeutet das farbige Wort?") +
@@ -1402,13 +1615,15 @@ const Ex = {
     const check = () => {
       if (!inp.value.trim()) return;
       inp.disabled = true; btn.disabled = true;
-      const a = U.stripArticle(U.norm(inp.value)), t = U.stripArticle(U.norm(w.en));
-      const dist = U.lev(a, t)[a.length][t.length];
-      const tol = t.length <= 3 ? 0 : t.length <= 7 ? 1 : 2;
-      const exact = dist === 0;
-      const ok = dist <= tol;
+      const a = U.stripArticle(U.norm(inp.value));
+      let best = null;
+      w.forms.forEach(f => { const t = U.stripArticle(U.norm(f)); const dist = U.lev(a, t)[a.length][t.length];
+        const tol = t.length <= 3 ? 0 : t.length <= 7 ? 1 : 2;
+        if (!best || dist - tol < best.dist - best.tol) best = { dist, tol }; });
+      const exact = best.dist === 0;
+      const ok = best.dist <= best.tol;
       inp.classList.add(ok ? "right" : "wrong");
-      Lesson.answer(item, ok, { near: ok && !exact, correct: w.en, sayAfter: w.en });
+      Lesson.answer(item, ok, { near: ok && !exact, correct: w.en, sayAfter: w.say });
     };
     btn.onclick = check;
     inp.onkeydown = e => { if (e.key === "Enter") check(); };
@@ -1463,7 +1678,7 @@ const Ex = {
     const wrongIds = new Set();
     body.querySelectorAll(".mcard").forEach(b => b.onclick = () => {
       if (b.classList.contains("done")) return;
-      if (b.dataset.side === "en") Speech.say(Data.byId[b.dataset.id].en);
+      if (b.dataset.side === "en") Speech.say(Data.byId[b.dataset.id].say);
       if (!sel) { sel = b; b.classList.add("sel"); Sound.play("tap"); return; }
       if (sel === b) { b.classList.remove("sel"); sel = null; return; }
       if (sel.dataset.side === b.dataset.side) { sel.classList.remove("sel"); sel = b; b.classList.add("sel"); return; }
@@ -1490,24 +1705,27 @@ const Ex = {
   },
 
   /* ---- Rechtschreibung ---- */
-  spellFeedback(item, ans) {
+  spellFeedback(item, ans, anyForm) {
     const w = item.w;
-    const d = U.diff(ans, w.en);
+    // Hören+Tippen: jede Schreibweise aus dem Buch zählt ("know" und "to know"), Satzzeichen am Ende egal
+    const clean = anyForm ? ans.replace(/[\s.?!]+$/, "").replace(/\s+/g, " ") : ans;
+    let tgt = w.sp, d = U.diff(clean, tgt);
+    if (anyForm) w.forms.forEach(f => { const d2 = U.diff(clean, f); if (d2.dist < d.dist) { d = d2; tgt = f; } });
     const ok = d.dist === 0;
-    const caseNote = ok && ans !== w.en ? `<div class="note">Achtung: So schreibt man es genau: <b>${U.esc(w.en)}</b></div>` : "";
-    const tricky = U.trickySet(w);
+    const caseNote = ok && clean !== tgt ? `<div class="note">Achtung: So schreibt man es genau: <b>${U.esc(tgt)}</b></div>` : "";
+    const tricky = U.trickySet(w, tgt);
     Lesson.answer(item, ok, ok ? {
-      correctHtml: `<div class="spelled">${U.letters(w.en, tricky, "tricky")} ${Speech.btn(w.en, "small")}</div>${caseNote}`, sayAfter: w.en
+      correctHtml: `<div class="spelled">${U.letters(tgt, tricky, "tricky")} ${Speech.btn(tgt, "small")}</div>${caseNote}`, sayAfter: tgt
     } : {
-      spell: true, sayAfter: w.en,
-      html: `<div class="cmp"><div class="cmp-row"><span class="cmp-l">Du:</span> <span class="spelled">${U.letters(ans || "–", d.badA, "bad")}</span></div>
-             <div class="cmp-row"><span class="cmp-l">Richtig:</span> <span class="spelled">${U.letters(w.en, d.badB, "good")}</span> ${Speech.btn(w.en, "small")}</div></div>`
+      spell: true, sayAfter: tgt,
+      html: `<div class="cmp"><div class="cmp-row"><span class="cmp-l">Du:</span> <span class="spelled">${U.letters(clean || "–", d.badA, "bad")}</span></div>
+             <div class="cmp-row"><span class="cmp-l">Richtig:</span> <span class="spelled">${U.letters(tgt, d.badB, "good")}</span> ${Speech.btn(tgt, "small")}</div></div>`
     });
   },
 
   spell_tiles(item, body, foot) {
     const w = item.w, st = Lesson.st;
-    const chars = [...w.en];
+    const chars = [...w.sp];
     const slots = chars.map((c, i) => /[A-Za-z]/.test(c) ? null : c); // Leerzeichen/Apostroph sind fest
     const needed = chars.filter(c => /[A-Za-z]/.test(c));
     const extraN = (item.isNew || item.wasNew || (st.attempts[w.id + "s"] || 0) >= 2) ? 0 : Math.min(3, Math.ceil(needed.length / 4));
@@ -1515,7 +1733,7 @@ const Ex = {
     const extra = []; for (let i = 0; i < extraN; i++) extra.push(U.pick([...alpha]));
     const tiles = U.shuffle(needed.concat(extra)).map((c, i) => ({ c, i }));
     body.innerHTML = this.head(item, "Setz das Wort aus den Buchstaben zusammen.") +
-      `<div class="prompt big-word de">${U.esc(w.de)} ${Speech.btn(w.en)}</div>
+      `<div class="prompt big-word de">${U.esc(w.de)} ${Speech.btn(w.sp)}</div>
        <div class="slots"></div><div class="tile-pool letters"></div>`;
     this.bindSay(body);
     const slotsEl = body.querySelector(".slots"), pool = body.querySelector(".tile-pool");
@@ -1543,26 +1761,27 @@ const Ex = {
       body.querySelectorAll(".slots button, .tile-pool button").forEach(b => b.disabled = true);
       let k = 0;
       const ans = chars.map((c, i) => slots[i] !== null ? c : placed[k++].c).join("");
-      slotsEl.classList.add(U.diff(ans, w.en).dist === 0 ? "right" : "wrong");
+      slotsEl.classList.add(U.diff(ans, w.sp).dist === 0 ? "right" : "wrong");
       this.spellFeedback(item, ans);
     };
-    Speech.say(w.en);
+    Speech.say(w.sp);
   },
 
   spell_gap(item, body, foot) {
     const w = item.w;
-    const chars = [...w.en];
+    const chars = [...w.sp];
     const letterIdx = chars.map((c, i) => /[A-Za-z]/.test(c) ? i : -1).filter(i => i >= 0);
-    let gaps = [...U.trickySet(w)].filter(i => letterIdx.includes(i));
+    let gaps = [...U.trickySet(w, w.sp)].filter(i => letterIdx.includes(i));
     const want = Math.min(letterIdx.length - 1, Math.max(1, Math.round(letterIdx.length / 4)));
     if (gaps.length > 3) gaps = gaps.slice(0, 3);
     const vowels = U.shuffle(letterIdx.filter(i => /[aeiouy]/i.test(chars[i]) && !gaps.includes(i) && i > 0));
     while (gaps.length < want && vowels.length) gaps.push(vowels.shift());
     const restI = U.shuffle(letterIdx.filter(i => !gaps.includes(i) && i > 0));
     while (gaps.length < want && restI.length) gaps.push(restI.shift());
+    if (!gaps.length && letterIdx.length) gaps.push(letterIdx[letterIdx.length - 1]);   // ganz kurze Wörter wie "o"
     gaps.sort((a, b) => a - b);
     body.innerHTML = this.head(item, "Ergänze die fehlenden Buchstaben.") +
-      `<div class="prompt big-word de">${U.esc(w.de)} ${Speech.btn(w.en)}</div>
+      `<div class="prompt big-word de">${U.esc(w.de)} ${Speech.btn(w.sp)}</div>
        <div class="gapword">${chars.map((c, i) => gaps.includes(i) ? `<input class="gapin" maxlength="1" data-i="${i}" ${U.inputAttrs}>` : `<span class="gl">${c === " " ? "&nbsp;" : U.esc(c)}</span>`).join("")}</div>`;
     this.bindSay(body);
     const ins = [...body.querySelectorAll(".gapin")];
@@ -1591,7 +1810,7 @@ const Ex = {
   spell_listen(item, body, foot) {
     const w = item.w;
     body.innerHTML = this.head(item, "Hör gut zu und schreib das Wort.") +
-      `<div class="listen-row"><button class="say huge" data-say="${U.esc(w.en)}">🔊</button><button class="say slow" data-say="${U.esc(w.en)}" aria-label="Langsam">🐢</button></div>
+      `<div class="listen-row"><button class="say huge" data-say="${U.esc(w.say)}">🔊</button><button class="say slow" data-say="${U.esc(w.say)}" aria-label="Langsam">🐢</button></div>
        <button class="tipbtn">Tipp: auf Deutsch zeigen</button>
        <input class="type-in" type="text" ${U.inputAttrs} placeholder="Schreib, was du hörst …">`;
     this.bindSay(body);
@@ -1600,10 +1819,10 @@ const Ex = {
     foot.innerHTML = `<button class="btn primary big" data-check disabled>Prüfen</button>`;
     const btn = foot.querySelector("[data-check]");
     inp.oninput = () => btn.disabled = !inp.value.trim();
-    const check = () => { if (!inp.value.trim()) return; inp.disabled = true; btn.disabled = true; this.spellFeedback(item, inp.value.trim()); };
+    const check = () => { if (!inp.value.trim()) return; inp.disabled = true; btn.disabled = true; this.spellFeedback(item, inp.value.trim(), true); };
     btn.onclick = check;
     inp.onkeydown = e => { if (e.key === "Enter") check(); };
-    Speech.say(w.en);
+    Speech.say(w.say);
     setTimeout(() => inp.focus(), 50);
   }
 };
@@ -1619,8 +1838,8 @@ const Engine = {
     document.addEventListener("click", () => Sound.ensure(), { once: true });
   },
   startNew(setId, packIndex, opts) { Lesson.start(Builder.newLesson(setId, packIndex), opts); },
-  startReview(n, opts, fillWeak) {
-    const p = Builder.reviewLesson(n, fillWeak);
+  startReview(n, opts, fillWeak, setId) {
+    const p = Builder.reviewLesson(n, fillWeak, setId);
     if (!p) return false;
     Lesson.start(p, opts); return true;
   }
@@ -2538,7 +2757,7 @@ Pix.elVar = function (name, map, outline, cls, cx, by, W, H) {
    PWA: Offline-Speicher, Update-Banner, Home-Bildschirm-Hinweis,
    dauerhafter Speicher und Sicherungscode (für beide Apps gleich)
    ===================================================================== */
-const TEST_MODE = VOCAB_SETS.some(s => s.id.startsWith("test")) || location.hash === "#test";
+const TEST_MODE = (typeof TEST_TOOLS !== "undefined" && TEST_TOOLS) || VOCAB_SETS.some(s => s.id.startsWith("test")) || location.hash === "#test";
 
 const PWA = {
   prefix: "APP1",
@@ -2630,16 +2849,30 @@ const PWA = {
     return this.prefix + ":" + this.b64(new TextEncoder().encode(json));
   },
   async importCode(code) {
-    code = String(code).replace(/\s+/g, "");
+    // robust gegen Text drumherum (z. B. aus WhatsApp), Anführungszeichen,
+    // unsichtbare Zeichen und Groß-/Kleinschreibung des Anfangs
+    const raw = String(code || "");
+    const m = raw.match(/([A-Za-z]{3}1)\s*(z?)\s*:\s*([A-Za-z0-9+/=\s\u00a0\u200b-\u200d\u2060\ufeff]+)/);
+    if (!m) throw new Error("Das ist kein Sicherungscode für diese App.");
+    const pre = m[1].toUpperCase();
+    if (pre !== this.prefix) {
+      if (pre === "MIO1" || pre === "ZOO1") throw new Error(pre === "MIO1" ? "Das ist ein Code aus der Mio-App. Bitte dort einfügen." : "Das ist ein Code aus Mios Zoo. Bitte dort einfügen.");
+      throw new Error("Das ist kein Sicherungscode für diese App.");
+    }
+    // Base64 endet spätestens mit den "="-Zeichen – Text danach ignorieren
+    const body = m[3].replace(/[^A-Za-z0-9+/=]/g, "").replace(/^([^=]*=+).*$/, "$1");
     let json;
-    if (code.startsWith(this.prefix + "z:")) {
-      if (!window.DecompressionStream) throw new Error("Dieses Gerät kann den Code nicht lesen.");
-      const ds = new Blob([this.unb64(code.slice(this.prefix.length + 2))]).stream().pipeThrough(new DecompressionStream("gzip"));
-      json = await new Response(ds).text();
-    } else if (code.startsWith(this.prefix + ":")) {
-      json = new TextDecoder().decode(this.unb64(code.slice(this.prefix.length + 1)));
-    } else throw new Error("Das ist kein Sicherungscode für diese App.");
-    const d = JSON.parse(json);
+    try {
+      if (m[2]) {
+        if (!window.DecompressionStream) throw new Error("Dieses Gerät kann den Code nicht lesen.");
+        const ds = new Blob([this.unb64(body)]).stream().pipeThrough(new DecompressionStream("gzip"));
+        json = await new Response(ds).text();
+      } else json = new TextDecoder().decode(this.unb64(body));
+    } catch (e) {
+      if (/Gerät/.test(e.message)) throw e;
+      throw new Error("Der Code ist unvollständig. Bitte den ganzen Code kopieren.");
+    }
+    let d; try { d = JSON.parse(json); } catch (e) { throw new Error("Der Code ist unvollständig. Bitte den ganzen Code kopieren."); }
     if (!d || typeof d !== "object" || typeof d.words !== "object") throw new Error("Der Code ist unvollständig.");
     return d;
   },
@@ -2765,12 +2998,12 @@ const SEASONS = [
 ];
 const DECO_COLORS = ["#e8475f", "#4D96FF", "#f4c430", "#3BC9A0", "#A78BFA", "#FF8A3D", "#ff9db0"];
 const DECOS = [
-  { id: "pumpkin", season: "autumn", name: "Kürbis-Laterne", en: "pumpkin lantern", price: 60, slot: "g1" },
-  { id: "lantern", season: "autumn", name: "Martinslaterne", en: "lantern", price: 60, slot: "g2" },
-  { id: "ghost", season: "autumn", name: "Kleines Gespenst", en: "little ghost", price: 80, slot: "air" },
-  { id: "presents", season: "xmas", name: "Geschenke", en: "presents", price: 60, slot: "g1" },
-  { id: "xtree", season: "xmas", name: "Tannenbaum", en: "Christmas tree", price: 100, slot: "g2" },
-  { id: "lights", season: "xmas", name: "Lichterkette", en: "fairy lights", price: 80, slot: "fence" }
+  { id: "pumpkin", season: "autumn", name: "Kürbis-Laterne", en: "pumpkin lantern", price: 90, slot: "g1" },
+  { id: "lantern", season: "autumn", name: "Martinslaterne", en: "lantern", price: 90, slot: "g2" },
+  { id: "ghost", season: "autumn", name: "Kleines Gespenst", en: "little ghost", price: 120, slot: "air" },
+  { id: "presents", season: "xmas", name: "Geschenke", en: "presents", price: 90, slot: "g1" },
+  { id: "xtree", season: "xmas", name: "Tannenbaum", en: "Christmas tree", price: 150, slot: "g2" },
+  { id: "lights", season: "xmas", name: "Lichterkette", en: "fairy lights", price: 120, slot: "fence" }
 ];
 /* Jedes Gehege hat sein eigenes Gespenst (Aussehen) – die Aktion steht im CSS (g-<tier>) */
 const GHOSTS = {
@@ -3074,6 +3307,17 @@ const ENC_XP_ONE = { correct: 1, retry: 1, lesson: 0, combo: 0 };
 const ENC_XP_TWO = { correct: 5, retry: 2, lesson: 0, combo: 0 };
 /* Päckchen im Shop: 10 XP pro Antwort wie immer, dazu ein großer Päckchen-Bonus */
 const SHOP_XP = { lesson: 50 };
+/* Wiederholen im Shop: pro Unit und Tag wird jede Runde weniger wert.
+   Die neueste Unit und die davor: 10 / 5 / 2 / 1 XP pro Antwort. Ältere Units: 2, danach 1.
+   Neue Päckchen bringen immer volle XP (SHOP_XP). Eine Runde zählt ab dem Start. */
+const REVIEW_XP = {
+  recent: [ { correct: 10, retry: 5, lesson: 50, combo: 5, label: "volle XP", en: "full XP" },
+            { correct: 5, retry: 2, lesson: 25, combo: 2, label: "halbe XP", en: "half XP" },
+            { correct: 2, retry: 1, lesson: 0, combo: 0, label: "2 XP pro Antwort", en: "2 XP per answer" },
+            { correct: 1, retry: 1, lesson: 0, combo: 0, label: "nur zum Üben · 1 XP", en: "just practice · 1 XP" } ],
+  old:    [ { correct: 2, retry: 1, lesson: 0, combo: 0, label: "2 XP pro Antwort", en: "2 XP per answer" },
+            { correct: 1, retry: 1, lesson: 0, combo: 0, label: "nur zum Üben · 1 XP", en: "just practice · 1 XP" } ]
+};
 const ZOO = { COMFORT_TASKS: 3, HOLIDAY_DAYS: 7, TOY_TASKS: 3, HAPPY_BONUS: 5, POWER_BONUS: 10, START_ANIMALS: 2, CLEAN_TASKS: 4, EVENT_TASKS: 6, EVENT_BONUS: 5, EVENT_CHANCE: 0.5, EVENT_MIN_WORDS: 6 };
 
 /* Pokale: jeder nur einmal. test(z) bekommt die App */
@@ -3243,7 +3487,7 @@ const App = {
       ${items.map(it => { const have = A.unlocked.filter(id => this.hasDeco(it.id, id)).length;
         return `<div class="food-row"><span class="food-ico" data-decoico="${it.id}"></span>
           <div class="food-txt"><b>${it.name}</b><span>${have} von ${n} Gehegen</span></div>
-          <button class="buy" data-deco="${it.id}" ${have < n ? "" : "disabled"}>${have < n ? "⭐ " + it.price : "✓"}</button></div>`; }).join("")}
+          <button class="buy" data-deco="${it.id}" ${have < n && A.wallet >= it.price ? "" : "disabled"}>${have < n ? "⭐ " + it.price : "✓"}</button></div>`; }).join("")}
     </section>`;
   },
   buyDecoDialog(id) {
@@ -3603,14 +3847,48 @@ const App = {
     });
   },
 
+  /* Wiederholungs-Runden im Shop (pro Unit und Tag) */
+  reviewRecent(setId) { const i = Data.sets.findIndex(x => x.id === setId); return i >= Data.sets.length - 2; },
+  reviewRounds(setId) {
+    const A = this.A, t = U.today();
+    if (!A.revRounds || A.revRounds.day !== t) A.revRounds = { day: t, n: {} };
+    return A.revRounds.n[setId] || 0;
+  },
+  reviewXP(setId) {
+    const list = REVIEW_XP[this.reviewRecent(setId) ? "recent" : "old"];
+    return list[Math.min(this.reviewRounds(setId), list.length - 1)];
+  },
+  shopPractice() {
+    const setId = this.A.setId, xp = this.reviewXP(setId);
+    this.A.revRounds.n[setId] = this.reviewRounds(setId) + 1; Store.save();
+    const { label, en, ...vals } = xp;
+    this.practice(8, "Great work!", () => {}, vals, null, setId);
+  },
+
+  /* Übersicht aller Päckchen nach Buchseiten (zum Aufklappen) */
+  packList() {
+    const packs = Plan.packs(this.A.setId);
+    if (packs.length < 2) return "";
+    const done = packs.filter(k => k.done).length;
+    return `<details class="pk-list"><summary>📖 Päckchen nach Buchseiten · ${done} von ${packs.length} fertig</summary>
+      ${packs.map(k => `<div class="pk-row ${k.done ? "done" : k.unlocked ? "open" : "locked"}">
+        <span class="pk-ico">${k.done ? "✅" : k.unlocked ? "📦" : "🔒"}</span>
+        <span class="pk-name">${U.esc(k.label)}</span><span class="pk-n">${k.learned}/${k.words.length}</span></div>`).join("")}
+    </details>`;
+  },
+
   shopView() {
     const A = this.A, set = Data.set(A.setId), next = Plan.nextPack(A.setId), p = Plan.setProgress(A.setId);
     const need = this.foodNeeded(), doneToday = Plan.packsDoneToday();
     let learn;
+    const rx = this.reviewXP(A.setId), first = rx === REVIEW_XP[this.reviewRecent(A.setId) ? "recent" : "old"][0];
     if (!next) learn = `<div class="done-box">🏆 Alle Wörter in „${U.esc(set.title)}“ gelernt!</div>
-      <button class="btn primary big" data-practice>Wiederholen und XP verdienen</button>`;
+      <button class="btn ${first ? "primary" : ""} big" data-practice>Wiederholen · ${rx.label}</button>
+      <p class="small">${this.reviewRecent(A.setId)
+        ? "Jede Wiederholung am selben Tag bringt weniger XP. Morgen gibt es wieder volle XP."
+        : "Ältere Units bringen beim Wiederholen nur wenig XP. Die meisten XP gibt es für neue Wörter."}</p>`;
     else if (doneToday === 0 || next.started) learn = `<button class="btn primary big" data-learn="${next.index}">
-      ${next.started ? "Weiterlernen" : "Neue Wörter lernen"} · Päckchen ${next.index + 1}</button>`;
+      ${next.started ? "Weiterlernen" : "Neue Wörter lernen"}<span class="btn-sub">${U.esc(next.label)}</span></button>`;
     else learn = `<div class="done-box">🎉 Für heute geschafft! Morgen gibt es neue Wörter.</div>
       <button class="btn big" data-learn="${next.index}">Noch ein Päckchen</button>`;
     return `${this.header()}
@@ -3623,6 +3901,7 @@ const App = {
         <div class="progress"><div style="width:${Math.round(100 * p.learned / p.total)}%"></div></div>
         <div class="sc-sub">${p.learned} von ${p.total} Wörtern gelernt</div>
         ${learn}
+        ${this.packList()}
       </section>
       <section class="card">
         <div class="card-title title-row">🛒 Futter kaufen <span class="pill gold">⭐ ${A.wallet} XP</span></div>
@@ -3683,7 +3962,7 @@ const App = {
         if (res.completed && res.mistakes === 0) this.bump("perfect");
         this.ensureAnimals(); this.view = "shop"; this.render(); } }));
     const pr = app.querySelector("[data-practice]");
-    if (pr) pr.onclick = () => this.practice(8, "Great work!", () => {}, true);
+    if (pr) pr.onclick = () => this.shopPractice();
     app.querySelectorAll("[data-buy]").forEach(b => b.onclick = () => this.buy(b.dataset.buy, b));
     app.querySelectorAll("[data-buyfriend]").forEach(b => b.onclick = () => this.buyFriend(b.dataset.buyfriend));
     app.querySelectorAll("[data-deco]").forEach(b => b.onclick = () => this.buyDecoDialog(b.dataset.deco));
@@ -3730,14 +4009,14 @@ const App = {
     const ico = document.querySelector(`.food-row [data-icon="${food}"]`);
     if (ico) ico.classList.add("pop");
   },
-  practice(n, title, onDone, shopXP, encId) {
+  practice(n, title, onDone, shopXP, encId, setId) {
     const encXP = encId && this.hasFriend(encId) ? ENC_XP_TWO : ENC_XP_ONE;
-    const ok = Engine.startReview(n, { xp: shopXP ? null : encXP, finishTitle: title, finishExtra: () => this.walletNote(), onClose: res => {
+    const ok = Engine.startReview(n, { xp: shopXP ? (typeof shopXP === "object" ? shopXP : null) : encXP, finishTitle: title, finishExtra: () => this.walletNote(), onClose: res => {
       if (res.completed) onDone();
       const m = res.completed ? this.afterMsg : null; this.afterMsg = null;
       this.quiet = !!m; this.render(); this.quiet = false;
       if (m) m();
-    } }, true);
+    } }, true, setId);
     if (!ok) this.dialog(`${Mio.svg("encourage")}<p class="dlg-title">Erst lernen, dann üben!</p>
       <p>Lerne zuerst im Shop ein paar neue Wörter. Dann kannst du hier mit ihnen üben.</p>
       <button class="btn primary big" data-shop>Zum Shop</button><button class="btn ghost" data-close>Später</button>`,
@@ -3952,6 +4231,7 @@ const App = {
     const xd = {}; Object.keys(A.xpDays || {}).forEach(k => xd[+k - 1] = A.xpDays[k]); A.xpDays = xd;
     if (A.lastEventRoll != null) A.lastEventRoll -= 1;
     if (A.event) A.event.day -= 1;
+    if (A.revRounds) A.revRounds.day -= 1;
     Store.save();
     this.rollEvent();
   }
